@@ -1,2 +1,2 @@
-# Homework 4
-Public repository and stub/testing code for Homework 4 of 10-714.
+# Deep Learning Systems Project
+Adding support for sparse matrices/vectors in CMU's Needle Library
