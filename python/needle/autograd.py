@@ -19,7 +19,7 @@ import numpy as array_api
 
 NDArray = numpy.ndarray
 
-from .backend_selection import array_api, NDArray, default_device
+from .backend_selection import array_api, NDArray, default_device, SparseNDArray
 
 
 class Op:
@@ -89,7 +89,7 @@ class SparseTensorOp(Op):
         return SparseTensor.make_from_op(self, args) # Check make_from_op for sparse tensor
 
 
-# Do we need SparseTensorTuple (or SparseTensorTupleOp), not adding for now
+# TODO: Do we need SparseTensorTuple (or SparseTensorTupleOp), not adding for now
 
 class TensorTupleOp(Op):
     """Op class specialized to output TensorTuple"""
@@ -106,7 +106,7 @@ class Value:
     inputs: List["Value"]
     # The following fields are cached fields for
     # dynamic computation
-    cached_data: NDArray
+    cached_data: Union[NDArray, SparseNDArray]
     requires_grad: bool
 
     def realize_cached_data(self):
@@ -130,7 +130,7 @@ class Value:
     def _init(
         self,
         op: Optional[Op],
-        inputs: List["Tensor"],
+        inputs: List[Union["Tensor", "SparseTensor"]],
         *,
         num_outputs: int = 1,
         cached_data: List[object] = None,
@@ -522,14 +522,16 @@ class SparseTensor(Value):
             return needle.ops.SparseEWiseAddTensor()(self, needle.ops.Negate()(other))
         else:
             return needle.ops.SparseAddScalar(-other)(self)
+        
+    # TODO: do we need division?
 
-    def __truediv__(self, other):
-        if isinstance(other, SparseTensor):
-            return needle.ops.SparseEWiseDiv()(self, other)
-        elif isinstance(other, Tensor):
-            return needle.ops.SparseEWiseDivTensor()(self, other)
-        else:
-            return needle.ops.SparseDivScalar(other)(self)
+    # def __truediv__(self, other):
+    #     if isinstance(other, SparseTensor):
+    #         return needle.ops.SparseEWiseDiv()(self, other)
+    #     elif isinstance(other, Tensor):
+    #         return needle.ops.SparseEWiseDivTensor()(self, other)
+    #     else:
+    #         return needle.ops.SparseDivScalar(other)(self)
 
     def __neg__(self):
         return needle.ops.SparseNegate()(self)

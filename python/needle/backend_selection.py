@@ -18,6 +18,7 @@ if BACKEND == "nd":
     )
 
     NDArray = array_api.NDArray
+    SparseNDArray = array_api.SparseNDArray
 elif BACKEND == "np":
     print("Using numpy backend")
     import numpy as array_api

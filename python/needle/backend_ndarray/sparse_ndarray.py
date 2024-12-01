@@ -159,4 +159,3 @@ class SparseNDArray:
         else:
             # self.device.sparse_matmul_dense(self, other)
             raise NotImplementedError()
-
