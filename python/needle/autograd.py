@@ -82,6 +82,14 @@ class TensorOp(Op):
     def __call__(self, *args):
         return Tensor.make_from_op(self, args)
 
+class SparseTensorOp(Op):
+    """Op class specialized to output sparse tensors"""
+
+    def __call__(self, *args):
+        return SparseTensor.make_from_op(self, args) # Check make_from_op for sparse tensor
+
+
+# Do we need SparseTensorTuple (or SparseTensorTupleOp), not adding for now
 
 class TensorTupleOp(Op):
     """Op class specialized to output TensorTuple"""
