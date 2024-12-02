@@ -220,7 +220,7 @@ CUDA_BUILD_CUBIN:BOOL=OFF
 CUDA_BUILD_EMULATION:BOOL=OFF
 
 //"cudart" library
-CUDA_CUDART_LIBRARY:FILEPATH=/home/srujan/miniconda3/envs/dls/lib/libcudart.so
+CUDA_CUDART_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libcudart.so
 
 //"cuda" library (older versions only).
 CUDA_CUDA_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libcuda.so
@@ -286,31 +286,31 @@ CUDA_VERBOSE_BUILD:BOOL=OFF
 CUDA_VERSION:STRING=11.5
 
 //"cublas" library
-CUDA_cublas_LIBRARY:FILEPATH=/home/srujan/miniconda3/envs/dls/lib/libcublas.so
+CUDA_cublas_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libcublas.so
 
 //"cudadevrt" library
-CUDA_cudadevrt_LIBRARY:FILEPATH=/home/srujan/miniconda3/envs/dls/lib/libcudadevrt.a
+CUDA_cudadevrt_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libcudadevrt.a
 
 //static CUDA runtime library
 CUDA_cudart_static_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libcudart_static.a
 
 //"cufft" library
-CUDA_cufft_LIBRARY:FILEPATH=/home/srujan/miniconda3/envs/dls/lib/libcufft.so
+CUDA_cufft_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libcufft.so
 
 //"cupti" library
-CUDA_cupti_LIBRARY:FILEPATH=/home/srujan/miniconda3/envs/dls/lib/libcupti.so
+CUDA_cupti_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libcupti.so
 
 //"curand" library
-CUDA_curand_LIBRARY:FILEPATH=/home/srujan/miniconda3/envs/dls/lib/libcurand.so
+CUDA_curand_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libcurand.so
 
 //"cusolver" library
-CUDA_cusolver_LIBRARY:FILEPATH=/home/srujan/miniconda3/envs/dls/lib/libcusolver.so
+CUDA_cusolver_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libcusolver.so
 
 //"cusparse" library
-CUDA_cusparse_LIBRARY:FILEPATH=/home/srujan/miniconda3/envs/dls/lib/libcusparse.so
+CUDA_cusparse_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libcusparse.so
 
 //"nppc" library
-CUDA_nppc_LIBRARY:FILEPATH=/home/srujan/miniconda3/envs/dls/lib/libnppc.so
+CUDA_nppc_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libnppc.so
 
 //"nppial" library
 CUDA_nppial_LIBRARY:FILEPATH=/home/srujan/miniconda3/envs/dls/lib/libnppial.so
@@ -340,16 +340,16 @@ CUDA_nppisu_LIBRARY:FILEPATH=/home/srujan/miniconda3/envs/dls/lib/libnppisu.so
 CUDA_nppitc_LIBRARY:FILEPATH=/home/srujan/miniconda3/envs/dls/lib/libnppitc.so
 
 //"npps" library
-CUDA_npps_LIBRARY:FILEPATH=/home/srujan/miniconda3/envs/dls/lib/libnpps.so
+CUDA_npps_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libnpps.so
 
 //"nvToolsExt" library
-CUDA_nvToolsExt_LIBRARY:FILEPATH=/home/srujan/miniconda3/envs/dls/lib/libnvToolsExt.so
+CUDA_nvToolsExt_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libnvToolsExt.so
 
 //Path to a library.
 CUDA_rt_LIBRARY:FILEPATH=/home/srujan/miniconda3/envs/dls/x86_64-conda-linux-gnu/sysroot/usr/lib/librt.so
 
 //Dependencies for the target
-ndarray_backend_cuda_LIB_DEPENDS:STATIC=general;/usr/lib/x86_64-linux-gnu/libcudart_static.a;general;dl;general;/home/srujan/miniconda3/envs/dls/x86_64-conda-linux-gnu/sysroot/usr/lib/librt.so;general;/home/srujan/miniconda3/envs/dls/lib/libcudart.so;
+ndarray_backend_cuda_LIB_DEPENDS:STATIC=general;/usr/lib/x86_64-linux-gnu/libcudart_static.a;general;dl;general;/home/srujan/miniconda3/envs/dls/x86_64-conda-linux-gnu/sysroot/usr/lib/librt.so;general;/usr/lib/x86_64-linux-gnu/libcudart.so;
 
 //Value Computed by CMake
 needle_BINARY_DIR:STATIC=/home/srujan/CMU/DLSys/project/build

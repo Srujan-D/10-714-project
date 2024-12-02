@@ -1,5 +1,6 @@
 import operator
 import math
+from typing import Tuple
 import numpy as np
 from functools import reduce
 from . import ndarray_backend_cpu, ndarray_backend_numpy
@@ -43,19 +44,51 @@ class SparseNDArray:
         self.nnz = len(self._data)
 
     @staticmethod
-    def make_sparse_from_numpy(other, device):
-        """Convert a numpy ndarray to a sparse ndarray."""
-        raise NotImplementedError()
+    def make_sparse_from_numpy(ndarray, device):
+        """
+        Convert a numpy dense array to SparseNDArray in CSR format.
+        """
+        # Ensure ndarray is 2D
+        if ndarray.ndim != 2:
+            raise ValueError("Only 2D arrays can be converted to SparseNDArray.")
+
+        rows, cols = ndarray.shape
+        indptr = [0]
+        indices = []
+        data = []
+
+        for i in range(rows):
+            for j in range(cols):
+                if ndarray[i, j] != 0:
+                    indices.append(j)
+                    data.append(ndarray[i, j])
+            indptr.append(len(indices))
+
+        return SparseNDArray.make((rows, cols), data, indices, indptr, device)
+
+    # @staticmethod
+    # def make(shape, data, indices, indptr, device=None):
+    #     """Create a sparse ndarray from the given data."""
+    #     array = SparseNDArray.__new__(SparseNDArray)
+    #     array._shape = tuple(shape)
+    #     array._device = device
+    #     array._data = data
+    #     array._indices = indices  # column index
+    #     array._indptr = indptr  # row index
+    #     array.nnz = len(data)
+    #     return array
 
     @staticmethod
     def make(shape, data, indices, indptr, device=None):
-        """Create a sparse ndarray from the given data."""
+        """
+        Create a SparseNDArray from raw CSR components.
+        """
         array = SparseNDArray.__new__(SparseNDArray)
         array._shape = tuple(shape)
         array._device = device
-        array._data = data
-        array._indices = indices  # column index
-        array._indptr = indptr  # row index
+        array._data = np.ascontiguousarray(data)
+        array._indices = np.ascontiguousarray(indices)
+        array._indptr = np.ascontiguousarray(indptr)
         array.nnz = len(data)
         return array
 
@@ -71,16 +104,16 @@ class SparseNDArray:
                 array[i, self._indices[j]] = self._data[j]
 
         return array
-    
+
     @staticmethod
-    def to_sparse(other: np.ndarray):
+    def to_sparse(other: np.ndarray, device=None):
         """Convert a numpy ndarray to a sparse ndarray."""
         shape = other.shape
         assert len(shape) == 2, "only support 2D arrays"
-        
+
         num_rows = shape[0]
         num_cols = shape[1]
-        
+
         data = []
         indices = []
         # The size of indptr array is num_rows + 1
@@ -94,7 +127,17 @@ class SparseNDArray:
                     indices.append(j)
         indptr[num_rows] = len(data)
 
-        return SparseNDArray.make(shape, data, indices, indptr)
+        return SparseNDArray.make(shape, data, indices, indptr, device)
+
+    # @staticmethod
+    # def to_numpy(other: SparseNDArray):
+    #     """Convert a sparse ndarray to a numpy ndarray."""
+    #     return other.to_numpy_array()
+
+    @staticmethod
+    def create_random_matrix(shape: Tuple[int, int]) -> np.ndarray:
+        """Create a random matrix with the given shape."""
+        return np.random.randint(low=1, high=100, size=shape)
 
     ### Properies and string representations
     @property
@@ -118,10 +161,26 @@ class SparseNDArray:
     @property
     def size(self):
         return prod(self._shape)
-    
+
     @property
     def count_nonzero(self):
         return self.nnz
+    
+    @property
+    def to_cpp_sparse_array(self):
+        """
+        Convert this SparseNDArray to a C++ SparseArray.
+        """
+        # Retrieve raw pointers and metadata
+        data_ptr = self._data.ctypes.data
+        indices_ptr = self._indices.ctypes.data
+        indptr_ptr = self._indptr.ctypes.data
+
+        # Call into the backend to create a C++ SparseArray
+        return SparseArray(
+            self.nnz, self._shape[0], self._shape[1],
+            data_ptr, indices_ptr, indptr_ptr
+        )
 
     def __repr__(self):
         return f"SparseNDArray(shape={self._shape}, device={self._device}, dtype={self.dtype})"
@@ -133,7 +192,8 @@ class SparseNDArray:
         """Move the sparse ndarray to the given device."""
         if self._device == device:
             return self
-        raise NotImplementedError()
+        else:
+            return SparseNDArray(self.to_numpy_array(), device)
 
     def broadcast_to(self, shape):
         """Broadcast the sparse ndarray to the given shape."""
@@ -148,9 +208,22 @@ class SparseNDArray:
         )
         if isinstance(other, SparseNDArray):
             assert self.shape == other.shape, "operation needs two equal-sized arrays"
-            ewise_func(out, other)
+            # Convert self and other into the expected C++ SparseArray type
+            sparse_self = self.to_cpp_sparse_array()
+            sparse_other = other.to_cpp_sparse_array()
+            sparse_out = out.to_cpp_sparse_array()
+
+            # Call the C++ elementwise function
+            ewise_func(sparse_out, sparse_self, sparse_other)
+
+        # Case 2: Scalar operation
         else:
-            scalar_func(out, other)
+            # Convert self into C++ SparseArray and call scalar_func
+            sparse_self = self.to_cpp_sparse_array()
+            sparse_out = out.to_cpp_sparse_array()
+
+            scalar_func(sparse_out, sparse_self, float(other))
+
         return out
 
     def __add__(self, other):
@@ -176,6 +249,19 @@ class SparseNDArray:
     def __neg__(self):
         return self * (-1)
 
+    """
+    from ndarray_backend, we have these methods:
+    
+    m.def("sparse_ewise_add", SparseEwiseAdd);
+    m.def("sparse_scalar_add", SparseScalarAdd);
+    m.def("sparse_ewise_mul", SparseEwiseMul);
+    m.def("sparse_scalar_mul", SparseScalarMul);
+    m.def("sparse_mat_dense_vec_mul", SparseMatDenseVecMul);
+    m.def("sparse_mat_sparse_vec_mul", SparseMatSparseVecMul);
+    m.def("sparse_mat_dense_mat_mul", SparseMatDenseMatMul);
+    m.def("sparse_mat_sparse_mat_mul", SparseMatSparseMatMul);
+    """
+
     def __matmul__(self, other):
         """Matrix multiplication with another sparse or dense ndarray.
         Like NDArray matmul, we don't handle batch matrix multiplication, and
@@ -196,9 +282,41 @@ class SparseNDArray:
         assert self.ndim == 2 and other.ndim == 2, "matmul requires 2D arrays"
         assert self.shape[1] == other.shape[0], "matmul shape mismatch"
 
+        output_shape = (self.shape[0], other.shape[1])
+
         if isinstance(other, SparseNDArray):
-            # self.device.sparse_matmul(self, other)
-            raise NotImplementedError()
+            # Handle sparse @ sparse case
+            if other.shape[1] == 1:
+                # Vector case
+                return self.device.sparse_mat_sparse_vec_mul(self, other)
+            else:
+                # Matrix case
+                return self.device.sparse_mat_sparse_mat_mul(self, other)
         else:
-            # self.device.sparse_matmul_dense(self, other)
-            raise NotImplementedError()
+            # Handle sparse @ dense case
+            if other.shape[1] == 1:
+                # Vector case
+                return self.device.sparse_mat_dense_vec_mul(self, other)
+            else:
+                # Matrix case
+                return self.device.sparse_mat_dense_mat_mul(self, other)
+
+
+def sparse_add(a, b):
+    return a + b
+
+
+def sparse_mul(a, b):
+    return a * b
+
+
+def add_scalar(a, scalar):
+    return a + scalar
+
+
+def mul_scalar(a, scalar):
+    return a * scalar
+
+
+def broadcast_to(a, shape):
+    return a.broadcast_to(shape)
