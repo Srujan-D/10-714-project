@@ -268,13 +268,6 @@ namespace needle
             }
         }
 
-        /*
-        Add spport for sparse matrices.
-        Currently we implement addition and multiplcation kernels only.
-        For both, if we have two matrices A and B, then at least one of them should be sparse.
-        Depending on whether B is sparse or not, we have two different kernels.
-        */
-
         /**
          * In the code the follows, use the above template to create analogous element-wise
          * and and scalar operators for the following functions.  See the numpy backend for
@@ -632,6 +625,324 @@ namespace needle
             /// END SOLUTION
         }
 
+        /*
+        Add spport for sparse matrices.
+        Currently we implement addition and multiplcation kernels only.
+        For both, if we have two matrices A and B, then at least one of them should be sparse.
+        Depending on whether B is sparse or not, we have two different kernels.
+        */
+
+        struct SparseArray
+        {
+            scalar_t *data;  // Non-zero values
+            int *indices;    // Column indices
+            int *indptr;     // Row pointers
+            size_t nnz;      // Number of non-zero elements
+            size_t num_rows; // Number of rows
+            size_t num_cols; // Number of columns
+
+            SparseArray(size_t nnz, size_t num_rows, size_t num_cols)
+                : nnz(nnz), num_rows(num_rows), num_cols(num_cols)
+            {
+                int ret;
+                ret = posix_memalign((void **)&data, ALIGNMENT, nnz * sizeof(scalar_t));
+                if (ret != 0)
+                    throw std::bad_alloc();
+                ret = posix_memalign((void **)&indices, ALIGNMENT, nnz * sizeof(int));
+                if (ret != 0)
+                    throw std::bad_alloc();
+                ret = posix_memalign((void **)&indptr, ALIGNMENT, (num_rows + 1) * sizeof(int));
+                if (ret != 0)
+                    throw std::bad_alloc();
+            }
+
+            ~SparseArray()
+            {
+                free(data);
+                free(indices);
+                free(indptr);
+            }
+        };
+
+        void SparseEwiseAdd(const SparseArray &a, const AlignedArray &b, AlignedArray *out)
+        {
+            /**
+             * Element-wise addition of sparse matrix `a` and dense matrix `b`.
+             * Result is stored in dense matrix `out`.
+             *
+             * Inputs:
+             *  - a: Sparse matrix in CSR format.
+             *  - b: Dense matrix.
+             *  - out: Output dense matrix (must have the same dimensions as `b`).
+             */
+
+            // Ensure dimensions match
+            assert(out->size == b.size && "Output array size must match dense matrix size");
+            assert(out->size == a.num_rows * a.num_cols && "Dimensions of sparse and dense matrices must match");
+
+            // // Initialize the output array to the values of the dense matrix `b`
+            // std::memcpy(out->ptr, b.ptr, b.size * sizeof(scalar_t));
+
+            // Perform sparse element-wise addition
+            for (size_t i = 0; i < a.num_rows; i++)
+            {
+                for (int j = a.indptr[i]; j < a.indptr[i + 1]; j++)
+                {
+                    size_t dense_index = i * a.num_cols + a.indices[j];
+                    out->ptr[dense_index] = a.data[j] + b.ptr[dense_index];
+                }
+            }
+        }
+
+        void SparseScalarAdd(const SparseArray &a, scalar_t val, AlignedArray *out)
+        {
+            /**
+             * Scalar addition of sparse matrix `a` with scalar value `val`.
+             * Result is stored in dense matrix `out`.
+             *
+             * Inputs:
+             *  - a: Sparse matrix in CSR format.
+             *  - val: Scalar value.
+             *  - out: Output dense matrix (must have the same dimensions as `a`).
+             */
+
+            // Ensure dimensions match
+            assert(out->size == a.num_rows * a.num_cols && "Output array size must match sparse matrix size");
+
+            // Perform sparse scalar addition
+            for (size_t i = 0; i < a.num_rows; i++)
+            {
+                for (int j = a.indptr[i]; j < a.indptr[i + 1]; j++)
+                {
+                    size_t dense_index = i * a.num_cols + a.indices[j];
+                    out->ptr[dense_index] = a.data[j] + val;
+                }
+            }
+        }
+
+        void SparseEwiseMul(const SparseArray &a, const AlignedArray &b, AlignedArray *out)
+        {
+            /**
+             * Element-wise multiplication of sparse matrix `a` and dense matrix `b`.
+             * Result is stored in dense matrix `out`.
+             *
+             * Inputs:
+             *  - a: Sparse matrix in CSR format.
+             *  - b: Dense matrix.
+             *  - out: Output dense matrix (must have the same dimensions as `b`).
+             */
+
+            // Ensure dimensions match
+            assert(out->size == b.size && "Output array size must match dense matrix size");
+            assert(out->size == a.num_rows * a.num_cols && "Dimensions of sparse and dense matrices must match");
+
+            // // Initialize the output array to the values of the dense matrix `b`
+            // std::memcpy(out->ptr, b.ptr, b.size * sizeof(scalar_t));
+
+            // Perform sparse element-wise multiplication
+            for (size_t i = 0; i < a.num_rows; i++)
+            {
+                for (int j = a.indptr[i]; j < a.indptr[i + 1]; j++)
+                {
+                    size_t dense_index = i * a.num_cols + a.indices[j];
+                    out->ptr[dense_index] = a.data[j] * b.ptr[dense_index];
+                }
+            }
+        }
+
+        void SparseScalarMul(const SparseArray &a, scalar_t val, AlignedArray *out)
+        {
+            /**
+             * Scalar multiplication of sparse matrix `a` with scalar value `val`.
+             * Result is stored in dense matrix `out`.
+             *
+             * Inputs:
+             *  - a: Sparse matrix in CSR format.
+             *  - val: Scalar value.
+             *  - out: Output dense matrix (must have the same dimensions as `a`).
+             */
+
+            // Ensure dimensions match
+            assert(out->size == a.num_rows * a.num_cols && "Output array size must match sparse matrix size");
+
+            // Perform sparse scalar multiplication
+            for (size_t i = 0; i < a.num_rows; i++)
+            {
+                for (int j = a.indptr[i]; j < a.indptr[i + 1]; j++)
+                {
+                    size_t dense_index = i * a.num_cols + a.indices[j];
+                    out->ptr[dense_index] = a.data[j] * val;
+                }
+            }
+        }
+
+        void SparseMatDenseVecMul(const SparseArray &a, const AlignedArray &b, AlignedArray *out)
+        {
+            /**
+             * Matrix-vector multiplication of sparse matrix `a` and dense vector `b`.
+             * Result is stored in dense vector `out`.
+             *
+             * Inputs:
+             *  - a: Sparse matrix in CSR format.
+             *  - b: Dense vector.
+             *  - out: Output dense vector (must have the same dimensions as `b`).
+             */
+
+            // Ensure dimensions match
+            assert(out->size == b.size && "Output array size must match dense vector size");
+            assert(a.num_cols == b.size && "Number of columns in sparse matrix must match size of dense vector");
+
+            // Perform sparse matrix-vector multiplication
+            for (size_t i = 0; i < a.num_rows; i++)
+            {
+                scalar_t sum = 0;
+                for (int j = a.indptr[i]; j < a.indptr[i + 1]; j++)
+                {
+                    sum += a.data[j] * b.ptr[a.indices[j]];
+                }
+                out->ptr[i] = sum;
+            }
+        }
+
+        void SparseMatSparseVecMul(const SparseArray &a, const SparseArray &b, AlignedArray *out)
+        {
+            /**
+             * Matrix-vector multiplication of sparse matrix `a` and sparse vector `b`.
+             * Result is stored in dense vector `out`.
+             *
+             * Inputs:
+             *  - a: Sparse matrix in CSR format.
+             *  - b: Sparse vector in CSR format.
+             *  - out: Output dense vector (must have the same dimensions as `b`).
+             */
+
+            // Ensure dimensions match
+            assert(out->size == b.num_cols && "Output array size must match sparse vector size");
+            assert(a.num_cols == b.num_rows && "Number of columns in sparse matrix must match number of rows in sparse vector");
+
+            // Perform sparse matrix-vector multiplication
+            for (size_t i = 0; i < a.num_rows; i++)
+            {
+                scalar_t sum = 0;
+                for (int j = a.indptr[i]; j < a.indptr[i + 1]; j++)
+                {
+                    sum += a.data[j] * b.data[b.indptr[a.indices[j]]];
+                }
+                out->ptr[i] = sum;
+            }
+        }
+
+        // void SparseMatDenseMatMul(const SparseArray &a, const AlignedArray &b, AlignedArray *out)
+        // {
+        //     /**
+        //      * Matrix-matrix multiplication of sparse matrix `a` and dense matrix `b`.
+        //      * Result is stored in dense matrix `out`.
+        //      *
+        //      * Inputs:
+        //      *  - a: Sparse matrix in CSR format.
+        //      *  - b: Dense matrix.
+        //      *  - out: Output dense matrix (must have the same dimensions as `b`).
+        //      */
+
+        //     // Ensure dimensions match
+        //     assert(out->size == b.size && "Output array size must match dense matrix size");
+        //     assert(out->size == a.num_rows * b.num_cols && "Dimensions of sparse and dense matrices must match");
+
+        //     // Perform sparse matrix-matrix multiplication
+        //     for (size_t i = 0; i < a.num_rows; i++)
+        //     {
+        //         for (int j = a.indptr[i]; j < a.indptr[i + 1]; j++)
+        //         {
+        //             for (size_t k = 0; k < b.num_cols; k++)
+        //             {
+        //                 out->ptr[i * b.num_cols + k] += a.data[j] * b.ptr[a.indices[j] * b.num_cols + k];
+        //             }
+        //         }
+        //     }
+        // }
+
+        void SparseMatDenseMatMul(const SparseArray &a, const AlignedArray &b, AlignedArray *out)
+        {
+            /**
+             * Matrix-matrix multiplication of sparse matrix `a` and dense matrix `b`.
+             * Result is stored in dense matrix `out`.
+             *
+             * Optimized implementation using column-wise vector multiplication.
+             *
+             * Inputs:
+             *  - a: Sparse matrix in CSR format.
+             *  - b: Dense matrix.
+             *  - out: Output dense matrix.
+             */
+
+            // Ensure dimensions match
+            assert(out->size == b.size && "Output array size must match dense matrix size");
+            assert(out->size == a.num_rows * b.num_cols && "Dimensions of sparse and dense matrices must match");
+
+            // Create temporary arrays for column-wise operations
+            AlignedArray col_vec(a.num_cols);
+            AlignedArray result_vec(a.num_rows);
+
+            // Process each column of b separately
+            for (size_t col = 0; col < b.size / a.num_cols; col++)
+            {
+                // Extract column from b
+                for (size_t i = 0; i < a.num_cols; i++)
+                {
+                    col_vec.ptr[i] = b.ptr[i * (b.size / a.num_cols) + col];
+                }
+
+                // Multiply sparse matrix with this column
+                SparseMatDenseVecMul(a, col_vec, &result_vec);
+
+                // Store result in appropriate column of out
+                for (size_t i = 0; i < a.num_rows; i++)
+                {
+                    out->ptr[i * (b.size / a.num_cols) + col] = result_vec.ptr[i];
+                }
+            }
+        }
+
+        void SparseMatSparseMatMul(const SparseArray &a, const SparseArray &b, AlignedArray *out)
+        {
+            /**
+             * Matrix-matrix multiplication of sparse matrix `a` and sparse matrix `b`.
+             * Result is stored in dense matrix `out`.
+             *
+             * Inputs:
+             *  - a: Sparse matrix in CSR format.
+             *  - b: Sparse matrix in CSR format.
+             *  - out: Output dense matrix (must have the same dimensions as `b`).
+             */
+
+            // Ensure dimensions match
+            assert(out->size == b.num_cols * a.num_rows && "Output array size must match dense matrix size");
+            assert(a.num_cols == b.num_rows && "Number of columns in sparse matrix `a` must match number of rows in sparse matrix `b`");
+
+            // Create temporary arrays for column-wise operations
+            AlignedArray col_vec(a.num_cols);
+            AlignedArray result_vec(a.num_rows);
+
+            // Process each column of b separately
+            for (size_t col = 0; col < b.num_cols; col++)
+            {
+                // Extract column from b
+                for (size_t i = 0; i < b.num_rows; i++)
+                {
+                    col_vec.ptr[i] = b.data[b.indptr[i] + col];
+                }
+
+                // Multiply sparse matrix with this column
+                SparseMatDenseVecMul(a, col_vec, &result_vec);
+
+                // Store result in appropriate column of out
+                for (size_t i = 0; i < a.num_rows; i++)
+                {
+                    out->ptr[i * b.num_cols + col] = result_vec.ptr[i];
+                }
+            }
+        }
+
     } // namespace cpu
 } // namespace needle
 
@@ -692,4 +1003,13 @@ PYBIND11_MODULE(ndarray_backend_cpu, m)
 
     m.def("reduce_max", ReduceMax);
     m.def("reduce_sum", ReduceSum);
+
+    m.def("sparse_ewise_add", SparseEwiseAdd);
+    m.def("sparse_scalar_add", SparseScalarAdd);
+    m.def("sparse_ewise_mul", SparseEwiseMul);
+    m.def("sparse_scalar_mul", SparseScalarMul);
+    m.def("sparse_mat_dense_vec_mul", SparseMatDenseVecMul);
+    m.def("sparse_mat_sparse_vec_mul", SparseMatSparseVecMul);
+    m.def("sparse_mat_dense_mat_mul", SparseMatDenseMatMul);
+    m.def("sparse_mat_sparse_mat_mul", SparseMatSparseMatMul);
 }
