@@ -632,6 +632,38 @@ namespace needle
         Depending on whether B is sparse or not, we have two different kernels.
         */
 
+        // struct SparseArray
+        // {
+        //     scalar_t *data;  // Non-zero values
+        //     int *indices;    // Column indices
+        //     int *indptr;     // Row pointers
+        //     size_t nnz;      // Number of non-zero elements
+        //     size_t num_rows; // Number of rows
+        //     size_t num_cols; // Number of columns
+
+        //     SparseArray(size_t nnz, size_t num_rows, size_t num_cols)
+        //         : nnz(nnz), num_rows(num_rows), num_cols(num_cols)
+        //     {
+        //         int ret;
+        //         ret = posix_memalign((void **)&data, ALIGNMENT, nnz * sizeof(scalar_t));
+        //         if (ret != 0)
+        //             throw std::bad_alloc();
+        //         ret = posix_memalign((void **)&indices, ALIGNMENT, nnz * sizeof(int));
+        //         if (ret != 0)
+        //             throw std::bad_alloc();
+        //         ret = posix_memalign((void **)&indptr, ALIGNMENT, (num_rows + 1) * sizeof(int));
+        //         if (ret != 0)
+        //             throw std::bad_alloc();
+        //     }
+
+        //     ~SparseArray()
+        //     {
+        //         free(data);
+        //         free(indices);
+        //         free(indptr);
+        //     }
+        // };
+
         struct SparseArray
         {
             scalar_t *data;  // Non-zero values
@@ -662,22 +694,20 @@ namespace needle
                 free(indices);
                 free(indptr);
             }
+
+            void from_components(const std::vector<scalar_t> &data_vec,
+                                 const std::vector<int> &indices_vec,
+                                 const std::vector<int> &indptr_vec)
+            {
+                assert(data_vec.size() == nnz && "Data size mismatch");
+                assert(indices_vec.size() == nnz && "Indices size mismatch");
+                assert(indptr_vec.size() == num_rows + 1 && "Indptr size mismatch");
+
+                std::memcpy(data, data_vec.data(), nnz * sizeof(scalar_t));
+                std::memcpy(indices, indices_vec.data(), nnz * sizeof(int));
+                std::memcpy(indptr, indptr_vec.data(), (num_rows + 1) * sizeof(int));
+            }
         };
-
-        // struct SparseArray
-        // {
-        //     scalar_t *data;  // Non-zero values
-        //     int *indices;    // Column indices
-        //     int *indptr;     // Row pointers
-        //     size_t nnz;      // Number of non-zero elements
-        //     size_t num_rows; // Number of rows
-        //     size_t num_cols; // Number of columns
-
-        //     // Constructor for creating a SparseArray from raw pointers
-        //     SparseArray(size_t nnz, size_t num_rows, size_t num_cols,
-        //                 scalar_t *data, int *indices, int *indptr)
-        //         : nnz(nnz), num_rows(num_rows), num_cols(num_cols), data(data), indices(indices), indptr(indptr) {}
-        // };
 
         // void from_dense(const scalar_t *dense_matrix, size_t rows, size_t cols)
         // {
@@ -984,7 +1014,6 @@ namespace needle
     }
 
 } // namespace cpu
-} // namespace needle
 
 PYBIND11_MODULE(ndarray_backend_cpu, m)
 {
@@ -1045,7 +1074,8 @@ PYBIND11_MODULE(ndarray_backend_cpu, m)
     m.def("reduce_sum", ReduceSum);
 
     py::class_<SparseArray>(m, "SparseArray")
-        .def(py::init<size_t, size_t, size_t>());
+        .def(py::init<size_t, size_t, size_t>())
+        .def("from_components", &SparseArray::from_components);
 
     m.def("sparse_ewise_add", SparseEwiseAdd);
     m.def("sparse_scalar_add", SparseScalarAdd);

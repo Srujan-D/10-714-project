@@ -36,19 +36,17 @@ class SparseNDArray:
             raise ValueError(f"Unsupported type {type(other)}")
 
     def _init(self, other):
+        """Initialize SparseNDArray from another SparseNDArray."""
         self._shape = other._shape
         self._device = other._device
-        self._data = other._data
-        self._indices = other._indices
-        self._indptr = other._indptr
-        self.nnz = len(self._data)
+        self._csr_array = other._csr_array  # Backend SparseArray object
+        self.nnz = self._csr_array.nnz
 
     @staticmethod
     def make_sparse_from_numpy(ndarray, device):
         """
         Convert a numpy dense array to SparseNDArray in CSR format.
         """
-        # Ensure ndarray is 2D
         if ndarray.ndim != 2:
             raise ValueError("Only 2D arrays can be converted to SparseNDArray.")
 
@@ -66,6 +64,53 @@ class SparseNDArray:
 
         return SparseNDArray.make((rows, cols), data, indices, indptr, device)
 
+    @staticmethod
+    def make(shape, data, indices, indptr, device=None):
+        """
+        Create a SparseNDArray from raw CSR components.
+        """
+        array = SparseNDArray.__new__(SparseNDArray)
+        array._shape = tuple(shape)
+        array._device = device if device is not None else default_device()
+
+        # Create the C++ SparseArray backend
+        array._crs_array = device.SparseArray(len(data), shape[0], shape[1])
+        array._crs_array.from_components(data, indices, indptr)
+
+        return array
+
+    # def _init(self, other):
+    #     self._shape = other._shape
+    #     self._device = other._device
+    #     self._data = other._data
+    #     self._indices = other._indices
+    #     self._indptr = other._indptr
+    #     self.nnz = len(self._data)
+
+    # @staticmethod
+    # def make_sparse_from_numpy(ndarray, device):
+    #     """
+    #     Convert a numpy dense array to SparseNDArray in CSR format.
+    #     """
+    #     # Ensure ndarray is 2D
+    #     if ndarray.ndim != 2:
+    #         raise ValueError("Only 2D arrays can be converted to SparseNDArray.")
+
+    #     rows, cols = ndarray.shape
+    #     indptr = [0]
+    #     indices = []
+    #     data = []
+
+    #     for i in range(rows):
+    #         for j in range(cols):
+    #             if ndarray[i, j] != 0:
+    #                 indices.append(j)
+    #                 data.append(ndarray[i, j])
+    #         indptr.append(len(indices))
+
+    #     return SparseNDArray.make((rows, cols), data, indices, indptr, device)
+
+    ## The function below is not needed, can be removed after confirmation later
     # @staticmethod
     # def make(shape, data, indices, indptr, device=None):
     #     """Create a sparse ndarray from the given data."""
@@ -78,26 +123,26 @@ class SparseNDArray:
     #     array.nnz = len(data)
     #     return array
 
-    @staticmethod
-    def make(shape, data, indices, indptr, device=None):
-        """
-        Create a SparseNDArray from raw CSR components.
-        """
-        array = SparseNDArray.__new__(SparseNDArray)
-        array._shape = tuple(shape)
-        array._device = device
-        # TODO: Use a SparseArray object to store the data
-        # from NDArray, we can see that only the array of some size is created
-        # the actual values are stored in the SparseArray object afterwords using the respective operations
+    # @staticmethod
+    # def make(shape, data, indices, indptr, device=None):
+    #     """
+    #     Create a SparseNDArray from raw CSR components.
+    #     """
+    #     array = SparseNDArray.__new__(SparseNDArray)
+    #     array._shape = tuple(shape)
+    #     array._device = device
+    #     # TODO: Use a SparseArray object to store the data
+    #     # from NDArray, we can see that only the array of some size is created
+    #     # the actual values are stored in the SparseArray object afterwords using the respective operations
 
-        # array._crs_array = array.device.SparseArray()
+    #     # array._crs_array = array.device.SparseArray()
 
-        # TODO: we probably dont need this np.ascontiguousarray and we might have to use members of the SparseArray object from C++
-        array._data = np.ascontiguousarray(data)
-        array._indices = np.ascontiguousarray(indices)
-        array._indptr = np.ascontiguousarray(indptr)
-        array.nnz = len(data)
-        return array
+    #     # TODO: we probably dont need this np.ascontiguousarray and we might have to use members of the SparseArray object from C++
+    #     array._data = np.ascontiguousarray(data)
+    #     array._indices = np.ascontiguousarray(indices)
+    #     array._indptr = np.ascontiguousarray(indptr)
+    #     array.nnz = len(data)
+    #     return array
 
     @property
     def to_numpy_array(self):
