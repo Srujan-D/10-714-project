@@ -268,6 +268,13 @@ namespace needle
             }
         }
 
+        /*
+        Add spport for sparse matrices.
+        Currently we implement addition and multiplcation kernels only.
+        For both, if we have two matrices A and B, then at least one of them should be sparse.
+        Depending on whether B is sparse or not, we have two different kernels.
+        */
+
         /**
          * In the code the follows, use the above template to create analogous element-wise
          * and and scalar operators for the following functions.  See the numpy backend for

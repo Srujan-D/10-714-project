@@ -26,7 +26,7 @@ def sparse_add(a, b):
     return SparseEWiseAdd()(a, b)
 
 
-# TODO: Check if this is needed, and think about the right
+# TODO: Check if this is needed, and think about the right way to implement it
 class SparseEWiseAddTensor(SparseTensorOp):
     def compute(self, a: SparseNDArray, b: NDArray):
         return a + b
@@ -66,7 +66,7 @@ def sparse_mul(a, b):
     return SparseEWiseMul()(a, b)
 
 
-# TODO: Check if this is needed, and think about the right
+# TODO: Check if this is needed, and think about the right way to implement it
 class SparseEWiseMulTensor(SparseTensorOp):
     def compute(self, a: SparseNDArray, b: NDArray):
         return a * b

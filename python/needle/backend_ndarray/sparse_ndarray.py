@@ -40,6 +40,7 @@ class SparseNDArray:
         self._data = other._data
         self._indices = other._indices
         self._indptr = other._indptr
+        self.nnz = len(self._data)
 
     @staticmethod
     def make_sparse_from_numpy(other, device):
@@ -53,9 +54,47 @@ class SparseNDArray:
         array._shape = tuple(shape)
         array._device = device
         array._data = data
-        array._indices = indices
-        array._indptr = indptr
+        array._indices = indices  # column index
+        array._indptr = indptr  # row index
+        array.nnz = len(data)
         return array
+
+    @property
+    def to_numpy_array(self):
+        """Convert the sparse ndarray to a numpy ndarray."""
+        array = np.zeros(self._shape, dtype=np.float32)
+        num_rows = self._shape[0]
+        for i in range(num_rows):
+            start = self._indptr[i]
+            end = self._indptr[i + 1]
+            for j in range(start, end):
+                array[i, self._indices[j]] = self._data[j]
+
+        return array
+    
+    @staticmethod
+    def to_sparse(other: np.ndarray):
+        """Convert a numpy ndarray to a sparse ndarray."""
+        shape = other.shape
+        assert len(shape) == 2, "only support 2D arrays"
+        
+        num_rows = shape[0]
+        num_cols = shape[1]
+        
+        data = []
+        indices = []
+        # The size of indptr array is num_rows + 1
+        indptr = [0] * (num_rows + 1)
+
+        for i in range(num_rows):
+            indptr[i] = len(data)
+            for j in range(num_cols):
+                if other[i, j] != 0:
+                    data.append(other[i, j])
+                    indices.append(j)
+        indptr[num_rows] = len(data)
+
+        return SparseNDArray.make(shape, data, indices, indptr)
 
     ### Properies and string representations
     @property
@@ -79,6 +118,10 @@ class SparseNDArray:
     @property
     def size(self):
         return prod(self._shape)
+    
+    @property
+    def count_nonzero(self):
+        return self.nnz
 
     def __repr__(self):
         return f"SparseNDArray(shape={self._shape}, device={self._device}, dtype={self.dtype})"
