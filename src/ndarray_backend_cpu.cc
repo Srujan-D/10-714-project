@@ -632,38 +632,6 @@ namespace needle
         Depending on whether B is sparse or not, we have two different kernels.
         */
 
-        // struct SparseArray
-        // {
-        //     scalar_t *data;  // Non-zero values
-        //     int *indices;    // Column indices
-        //     int *indptr;     // Row pointers
-        //     size_t nnz;      // Number of non-zero elements
-        //     size_t num_rows; // Number of rows
-        //     size_t num_cols; // Number of columns
-
-        //     SparseArray(size_t nnz, size_t num_rows, size_t num_cols)
-        //         : nnz(nnz), num_rows(num_rows), num_cols(num_cols)
-        //     {
-        //         int ret;
-        //         ret = posix_memalign((void **)&data, ALIGNMENT, nnz * sizeof(scalar_t));
-        //         if (ret != 0)
-        //             throw std::bad_alloc();
-        //         ret = posix_memalign((void **)&indices, ALIGNMENT, nnz * sizeof(int));
-        //         if (ret != 0)
-        //             throw std::bad_alloc();
-        //         ret = posix_memalign((void **)&indptr, ALIGNMENT, (num_rows + 1) * sizeof(int));
-        //         if (ret != 0)
-        //             throw std::bad_alloc();
-        //     }
-
-        //     ~SparseArray()
-        //     {
-        //         free(data);
-        //         free(indices);
-        //         free(indptr);
-        //     }
-        // };
-
         struct SparseArray
         {
             scalar_t *data;  // Non-zero values
@@ -673,36 +641,68 @@ namespace needle
             size_t num_rows; // Number of rows
             size_t num_cols; // Number of columns
 
-            // Constructor for creating a SparseArray from raw pointers
-            SparseArray(size_t nnz, size_t num_rows, size_t num_cols,
-                        scalar_t *data, int *indices, int *indptr)
-                : nnz(nnz), num_rows(num_rows), num_cols(num_cols), data(data), indices(indices), indptr(indptr) {}
+            SparseArray(size_t nnz, size_t num_rows, size_t num_cols)
+                : nnz(nnz), num_rows(num_rows), num_cols(num_cols)
+            {
+                int ret;
+                ret = posix_memalign((void **)&data, ALIGNMENT, nnz * sizeof(scalar_t));
+                if (ret != 0)
+                    throw std::bad_alloc();
+                ret = posix_memalign((void **)&indices, ALIGNMENT, nnz * sizeof(int));
+                if (ret != 0)
+                    throw std::bad_alloc();
+                ret = posix_memalign((void **)&indptr, ALIGNMENT, (num_rows + 1) * sizeof(int));
+                if (ret != 0)
+                    throw std::bad_alloc();
+            }
+
+            ~SparseArray()
+            {
+                free(data);
+                free(indices);
+                free(indptr);
+            }
         };
 
-        void from_dense(const scalar_t *dense_matrix, size_t rows, size_t cols)
-        {
-            /**
-             * Convert a dense matrix to CSR format and populate SparseArray.
-             */
-            size_t nnz_count = 0;
+        // struct SparseArray
+        // {
+        //     scalar_t *data;  // Non-zero values
+        //     int *indices;    // Column indices
+        //     int *indptr;     // Row pointers
+        //     size_t nnz;      // Number of non-zero elements
+        //     size_t num_rows; // Number of rows
+        //     size_t num_cols; // Number of columns
 
-            // Calculate nnz and populate CSR arrays
-            for (size_t i = 0; i < rows; i++)
-            {
-                indptr[i] = nnz_count;
-                for (size_t j = 0; j < cols; j++)
-                {
-                    scalar_t val = dense_matrix[i * cols + j];
-                    if (val != 0)
-                    {
-                        data[nnz_count] = val;
-                        indices[nnz_count] = j;
-                        nnz_count++;
-                    }
-                }
-            }
-            indptr[rows] = nnz_count;
-        }
+        //     // Constructor for creating a SparseArray from raw pointers
+        //     SparseArray(size_t nnz, size_t num_rows, size_t num_cols,
+        //                 scalar_t *data, int *indices, int *indptr)
+        //         : nnz(nnz), num_rows(num_rows), num_cols(num_cols), data(data), indices(indices), indptr(indptr) {}
+        // };
+
+        // void from_dense(const scalar_t *dense_matrix, size_t rows, size_t cols)
+        // {
+        //     /**
+        //      * Convert a dense matrix to CSR format and populate SparseArray.
+        //      */
+        //     size_t nnz_count = 0;
+
+        //     // Calculate nnz and populate CSR arrays
+        //     for (size_t i = 0; i < rows; i++)
+        //     {
+        //         indptr[i] = nnz_count;
+        //         for (size_t j = 0; j < cols; j++)
+        //         {
+        //             scalar_t val = dense_matrix[i * cols + j];
+        //             if (val != 0)
+        //             {
+        //                 data[nnz_count] = val;
+        //                 indices[nnz_count] = j;
+        //                 nnz_count++;
+        //             }
+        //         }
+        //     }
+        //     indptr[rows] = nnz_count;
+        // }
     };
     void SparseEwiseAdd(const SparseArray &a, const AlignedArray &b, AlignedArray *out)
     {
@@ -1045,7 +1045,7 @@ PYBIND11_MODULE(ndarray_backend_cpu, m)
     m.def("reduce_sum", ReduceSum);
 
     py::class_<SparseArray>(m, "SparseArray")
-        .def(py::init<size_t, size_t, size_t, scalar_t *, int *, int *>());
+        .def(py::init<size_t, size_t, size_t>());
 
     m.def("sparse_ewise_add", SparseEwiseAdd);
     m.def("sparse_scalar_add", SparseScalarAdd);

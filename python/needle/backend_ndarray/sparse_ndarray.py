@@ -86,6 +86,13 @@ class SparseNDArray:
         array = SparseNDArray.__new__(SparseNDArray)
         array._shape = tuple(shape)
         array._device = device
+        # TODO: Use a SparseArray object to store the data
+        # from NDArray, we can see that only the array of some size is created
+        # the actual values are stored in the SparseArray object afterwords using the respective operations
+
+        # array._crs_array = array.device.SparseArray()
+
+        # TODO: we probably dont need this np.ascontiguousarray and we might have to use members of the SparseArray object from C++
         array._data = np.ascontiguousarray(data)
         array._indices = np.ascontiguousarray(indices)
         array._indptr = np.ascontiguousarray(indptr)
@@ -165,7 +172,7 @@ class SparseNDArray:
     @property
     def count_nonzero(self):
         return self.nnz
-    
+
     @property
     def to_cpp_sparse_array(self):
         """
@@ -178,8 +185,7 @@ class SparseNDArray:
 
         # Call into the backend to create a C++ SparseArray
         return SparseArray(
-            self.nnz, self._shape[0], self._shape[1],
-            data_ptr, indices_ptr, indptr_ptr
+            self.nnz, self._shape[0], self._shape[1], data_ptr, indices_ptr, indptr_ptr
         )
 
     def __repr__(self):
