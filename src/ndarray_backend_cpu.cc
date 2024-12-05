@@ -6,6 +6,8 @@
 #include <iostream>
 #include <stdexcept>
 
+namespace py = pybind11;
+
 namespace needle
 {
     namespace cpu
@@ -695,18 +697,36 @@ namespace needle
                 free(indptr);
             }
 
-            void from_components(const std::vector<scalar_t> &data_vec,
-                                 const std::vector<int> &indices_vec,
-                                 const std::vector<int> &indptr_vec)
+            void from_components(py::list data_list, py::list indices_list, py::list indptr_list)
             {
-                assert(data_vec.size() == nnz && "Data size mismatch");
-                assert(indices_vec.size() == nnz && "Indices size mismatch");
-                assert(indptr_vec.size() == num_rows + 1 && "Indptr size mismatch");
+                assert(data_list.size() == nnz && "Data size mismatch");
+                assert(indices_list.size() == nnz && "Indices size mismatch");
+                assert(indptr_list.size() == num_rows + 1 && "Indptr size mismatch");
 
-                std::memcpy(data, data_vec.data(), nnz * sizeof(scalar_t));
-                std::memcpy(indices, indices_vec.data(), nnz * sizeof(int));
-                std::memcpy(indptr, indptr_vec.data(), (num_rows + 1) * sizeof(int));
+                for (size_t i = 0; i < nnz; i++)
+                {
+                    data[i] = py::cast<scalar_t>(data_list[i]);
+                    indices[i] = py::cast<int>(indices_list[i]);
+                }
+
+                for (size_t i = 0; i < num_rows + 1; i++)
+                {
+                    indptr[i] = py::cast<int>(indptr_list[i]);
+                }
             }
+
+            // void from_components(const std::vector<scalar_t> &data_vec,
+            //                      const std::vector<int> &indices_vec,
+            //                      const std::vector<int> &indptr_vec)
+            // {
+            //     assert(data_vec.size() == nnz && "Data size mismatch");
+            //     assert(indices_vec.size() == nnz && "Indices size mismatch");
+            //     assert(indptr_vec.size() == num_rows + 1 && "Indptr size mismatch");
+
+            //     std::memcpy(data, data_vec.data(), nnz * sizeof(scalar_t));
+            //     std::memcpy(indices, indices_vec.data(), nnz * sizeof(int));
+            //     std::memcpy(indptr, indptr_vec.data(), (num_rows + 1) * sizeof(int));
+            // }
         };
 
         // void from_dense(const scalar_t *dense_matrix, size_t rows, size_t cols)
@@ -734,32 +754,48 @@ namespace needle
         //     indptr[rows] = nnz_count;
         // }
 
-        void SparseEwiseAdd(const SparseArray &a, const AlignedArray &b, AlignedArray *out)
-        {
-            /**
-             * Element-wise addition of sparse matrix `a` and dense matrix `b`.
-             * Result is stored in dense matrix `out`.
-             *
-             * Inputs:
-             *  - a: Sparse matrix in CSR format.
-             *  - b: Dense matrix.
-             *  - out: Output dense matrix (must have the same dimensions as `b`).
-             */
-
-            // Ensure dimensions match
+        // First overload - Sparse + Dense
+        void SparseEwiseAdd(const SparseArray &a, const AlignedArray &b, AlignedArray *out) {
             assert(out->size == b.size && "Output array size must match dense matrix size");
             assert(out->size == a.num_rows * a.num_cols && "Dimensions of sparse and dense matrices must match");
 
-            // // Initialize the output array to the values of the dense matrix `b`
-            // std::memcpy(out->ptr, b.ptr, b.size * sizeof(scalar_t));
-
-            // Perform sparse element-wise addition
-            for (size_t i = 0; i < a.num_rows; i++)
-            {
-                for (int j = a.indptr[i]; j < a.indptr[i + 1]; j++)
-                {
+            for (size_t i = 0; i < a.num_rows; i++) {
+                for (int j = a.indptr[i]; j < a.indptr[i + 1]; j++) {
                     size_t dense_index = i * a.num_cols + a.indices[j];
                     out->ptr[dense_index] = a.data[j] + b.ptr[dense_index];
+                }
+            }
+        }
+
+        // Second overload - Dense + Sparse 
+        void SparseEwiseAdd(const AlignedArray &a, const SparseArray &b, AlignedArray *out) {
+            assert(out->size == a.size && "Output array size must match dense matrix size");
+            assert(out->size == b.num_rows * b.num_cols && "Dimensions of sparse and dense matrices must match");
+
+            for (size_t i = 0; i < b.num_rows; i++) {
+                for (int j = b.indptr[i]; j < b.indptr[i + 1]; j++) {
+                    size_t dense_index = i * b.num_cols + b.indices[j];
+                    out->ptr[dense_index] = a.ptr[dense_index] + b.data[j];
+                }
+            }
+        }
+
+        // Third overload - Sparse + Sparse
+        void SparseEWiseAdd(const SparseArray &a, const SparseArray &b, AlignedArray *out) {
+            assert(out->size == a.num_rows * a.num_cols && "Output array size must match sparse matrix size");
+            assert(out->size == b.num_rows * b.num_cols && "Dimensions of sparse matrices must match");
+
+            for (size_t i = 0; i < a.num_rows; i++) {
+                for (int j = a.indptr[i]; j < a.indptr[i + 1]; j++) {
+                    size_t dense_index = i * a.num_cols + a.indices[j];
+                    out->ptr[dense_index] = a.data[j];
+                }
+            }
+
+            for (size_t i = 0; i < b.num_rows; i++) {
+                for (int j = b.indptr[i]; j < b.indptr[i + 1]; j++) {
+                    size_t dense_index = i * b.num_cols + b.indices[j];
+                    out->ptr[dense_index] += b.data[j];
                 }
             }
         }
@@ -779,7 +815,12 @@ namespace needle
             // Ensure dimensions match
             assert(out->size == a.num_rows * a.num_cols && "Output array size must match sparse matrix size");
 
-            // Perform sparse scalar addition
+            // Initialize all elements to val
+            for (size_t i = 0; i < out->size; i++) {
+                out->ptr[i] = val;
+            }
+
+            // Add the sparse elements
             for (size_t i = 0; i < a.num_rows; i++)
             {
                 for (int j = a.indptr[i]; j < a.indptr[i + 1]; j++)
@@ -790,36 +831,97 @@ namespace needle
             }
         }
 
-        void SparseEwiseMul(const SparseArray &a, const AlignedArray &b, AlignedArray *out)
-        {
-            /**
-             * Element-wise multiplication of sparse matrix `a` and dense matrix `b`.
-             * Result is stored in dense matrix `out`.
-             *
-             * Inputs:
-             *  - a: Sparse matrix in CSR format.
-             *  - b: Dense matrix.
-             *  - out: Output dense matrix (must have the same dimensions as `b`).
-             */
+        // void SparseEwiseMul(const SparseArray &a, const AlignedArray &b, AlignedArray *out)
+        // {
+        //     /**
+        //      * Element-wise multiplication of sparse matrix `a` and dense matrix `b`.
+        //      * Result is stored in dense matrix `out`.
+        //      *
+        //      * Inputs:
+        //      *  - a: Sparse matrix in CSR format.
+        //      *  - b: Dense matrix.
+        //      *  - out: Output dense matrix (must have the same dimensions as `b`).
+        //      */
 
-            // Ensure dimensions match
+        //     // Ensure dimensions match
+        //     assert(out->size == b.size && "Output array size must match dense matrix size");
+        //     assert(out->size == a.num_rows * a.num_cols && "Dimensions of sparse and dense matrices must match");
+
+        //     // // Initialize the output array to the values of the dense matrix `b`
+        //     // std::memcpy(out->ptr, b.ptr, b.size * sizeof(scalar_t));
+
+        //     // Perform sparse element-wise multiplication
+        //     for (size_t i = 0; i < a.num_rows; i++)
+        //     {
+        //         for (int j = a.indptr[i]; j < a.indptr[i + 1]; j++)
+        //         {
+        //             size_t dense_index = i * a.num_cols + a.indices[j];
+        //             out->ptr[dense_index] = a.data[j] * b.ptr[dense_index];
+        //         }
+        //     }
+        // }
+        
+        // First overload - Sparse * Dense
+        void SparseEwiseMul(const SparseArray &a, const AlignedArray &b, AlignedArray *out) {
             assert(out->size == b.size && "Output array size must match dense matrix size");
             assert(out->size == a.num_rows * a.num_cols && "Dimensions of sparse and dense matrices must match");
 
-            // // Initialize the output array to the values of the dense matrix `b`
-            // std::memcpy(out->ptr, b.ptr, b.size * sizeof(scalar_t));
+            // Initialize output to zeros since we're only writing non-zero elements
+            std::fill(out->ptr, out->ptr + out->size, 0);
 
-            // Perform sparse element-wise multiplication
-            for (size_t i = 0; i < a.num_rows; i++)
-            {
-                for (int j = a.indptr[i]; j < a.indptr[i + 1]; j++)
-                {
+            // Multiply only non-zero elements
+            for (size_t i = 0; i < a.num_rows; i++) {
+                for (int j = a.indptr[i]; j < a.indptr[i + 1]; j++) {
                     size_t dense_index = i * a.num_cols + a.indices[j];
                     out->ptr[dense_index] = a.data[j] * b.ptr[dense_index];
                 }
             }
         }
 
+        // Second overload - Dense * Sparse
+        void SparseEwiseMul(const AlignedArray &a, const SparseArray &b, AlignedArray *out) {
+            assert(out->size == a.size && "Output array size must match dense matrix size");
+            assert(out->size == b.num_rows * b.num_cols && "Dimensions of sparse and dense matrices must match");
+
+            // Initialize output to zeros since we're only writing non-zero elements
+            std::fill(out->ptr, out->ptr + out->size, 0);
+
+            // Multiply only non-zero elements
+            for (size_t i = 0; i < b.num_rows; i++) {
+                for (int j = b.indptr[i]; j < b.indptr[i + 1]; j++) {
+                    size_t dense_index = i * b.num_cols + b.indices[j];
+                    out->ptr[dense_index] = a.ptr[dense_index] * b.data[j];
+                }
+            }
+        }
+
+        // Third overload - Sparse * Sparse
+        void SparseEwiseMul(const SparseArray &a, const SparseArray &b, AlignedArray *out) {
+            assert(out->size == a.num_rows * a.num_cols && "Output array size must match matrix dimensions");
+            assert(a.num_rows == b.num_rows && a.num_cols == b.num_cols && "Dimensions of sparse matrices must match");
+
+            // Initialize output to zeros since we're only writing non-zero elements
+            std::fill(out->ptr, out->ptr + out->size, 0);
+
+            // For each row
+            for (size_t i = 0; i < a.num_rows; i++) {
+                // For each non-zero element in row i of matrix a
+                for (int j_a = a.indptr[i]; j_a < a.indptr[i + 1]; j_a++) {
+                    int col_a = a.indices[j_a];
+                    
+                    // For each non-zero element in row i of matrix b
+                    for (int j_b = b.indptr[i]; j_b < b.indptr[i + 1]; j_b++) {
+                        int col_b = b.indices[j_b];
+                        
+                        // If both matrices have non-zero elements in the same position
+                        if (col_a == col_b) {
+                            size_t dense_index = i * a.num_cols + col_a;
+                            out->ptr[dense_index] = a.data[j_a] * b.data[j_b];
+                        }
+                    }
+                }
+            }
+        }
         void SparseScalarMul(const SparseArray &a, scalar_t val, AlignedArray *out)
         {
             /**
@@ -1017,7 +1119,7 @@ namespace needle
 
 PYBIND11_MODULE(ndarray_backend_cpu, m)
 {
-    namespace py = pybind11;
+    
     using namespace needle;
     using namespace cpu;
 
@@ -1073,13 +1175,27 @@ PYBIND11_MODULE(ndarray_backend_cpu, m)
     m.def("reduce_max", ReduceMax);
     m.def("reduce_sum", ReduceSum);
 
+    /*
+    py::class_<AlignedArray>(m, "Array")
+        .def(py::init<size_t>(), py::return_value_policy::take_ownership)
+        .def("ptr", &AlignedArray::ptr_as_int)
+        .def_readonly("size", &AlignedArray::size);
+    */
+
     py::class_<SparseArray>(m, "SparseArray")
-        .def(py::init<size_t, size_t, size_t>())
+        .def(py::init<size_t, size_t, size_t>(), py::return_value_policy::take_ownership)
         .def("from_components", &SparseArray::from_components);
 
-    m.def("sparse_ewise_add", SparseEwiseAdd);
+    m.def("sparse_ewise_add", static_cast<void (*)(const SparseArray&, const AlignedArray&, AlignedArray*)>(&SparseEwiseAdd));
+    m.def("sparse_ewise_add_dense", static_cast<void (*)(const AlignedArray&, const SparseArray&, AlignedArray*)>(&SparseEwiseAdd));
+    m.def("sparse_ewise_add_sparse", static_cast<void (*)(const SparseArray&, const SparseArray&, AlignedArray*)>(&SparseEWiseAdd));
+    
     m.def("sparse_scalar_add", SparseScalarAdd);
-    m.def("sparse_ewise_mul", SparseEwiseMul);
+
+    m.def("sparse_ewise_mul", static_cast<void (*)(const SparseArray&, const AlignedArray&, AlignedArray*)>(&SparseEwiseMul));
+    m.def("sparse_ewise_mul_dense", static_cast<void (*)(const AlignedArray&, const SparseArray&, AlignedArray*)>(&SparseEwiseMul)); 
+    m.def("sparse_ewise_mul_sparse", static_cast<void (*)(const SparseArray&, const SparseArray&, AlignedArray*)>(&SparseEwiseMul));
+
     m.def("sparse_scalar_mul", SparseScalarMul);
     m.def("sparse_mat_dense_vec_mul", SparseMatDenseVecMul);
     m.def("sparse_mat_sparse_vec_mul", SparseMatSparseVecMul);
