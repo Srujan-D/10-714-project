@@ -197,7 +197,22 @@ class SparseNDArray:
     def create_random_matrix(shape: Tuple[int, int]) -> np.ndarray:
         """Create a random matrix with the given shape."""
         return np.random.randint(low=1, high=100, size=shape)
+    
+    @staticmethod
+    def create_random_sparse_matrix(shape: Tuple[int, int], density: float = 0.1) -> 'SparseNDArray':
+        """
+        Create a random sparse matrix with the given shape and density.
+        Density is the fraction of non-zero elements in the matrix.
+        """
+        if not (0 <= density <= 1):
+            raise ValueError("Density must be between 0 and 1.")
 
+        dense_matrix = np.random.rand(*shape)
+        mask = np.random.rand(*shape) < density
+        sparse_matrix = np.multiply(dense_matrix, mask)
+        
+        return sparse_matrix
+    
     ### Properies and string representations
     @property
     def shape(self):
@@ -368,32 +383,33 @@ class SparseNDArray:
         output_shape = (self.shape[0], other.shape[1])
 
         out = full(shape=output_shape, fill_value=0, device=self.device)
-
+        # breakpoint()
         if isinstance(other, SparseNDArray):
             # Handle sparse @ sparse case
             if other.shape[1] == 1:
                 # Vector case
                 sparse_self = self.to_cpp_sparse_array
                 sparse_other = other.to_cpp_sparse_array
-                return self.device.sparse_mat_sparse_vec_mul(sparse_self, sparse_other, out._handle)
+                self.device.sparse_mat_sparse_vec_mul(sparse_self, sparse_other, out._handle)
             else:
                 # Matrix case
                 sparse_self = self.to_cpp_sparse_array
                 sparse_other = other.to_cpp_sparse_array
-                return self.device.sparse_mat_sparse_mat_mul(sparse_self, sparse_other, out._handle)
+                self.device.sparse_mat_sparse_mat_mul(sparse_self, sparse_other, out._handle)
         else:
             # Handle sparse @ dense case
             if other.shape[1] == 1:
                 # Vector case
                 sparse_self = self.to_cpp_sparse_array
                 sparse_other = other.to_cpp_sparse_array
-                return self.device.sparse_mat_dense_vec_mul(sparse_self, sparse_other, out._handle)
+                self.device.sparse_mat_dense_vec_mul(sparse_self, sparse_other, out._handle)
             else:
                 # Matrix case
                 sparse_self = self.to_cpp_sparse_array
                 sparse_other = other.to_cpp_sparse_array
-                return self.device.sparse_mat_dense_mat_mul(sparse_self, sparse_other, out._handle)
-
+                self.device.sparse_mat_dense_mat_mul(sparse_self, sparse_other, out._handle)
+        
+        return out
 
 def sparse_add(a, b):
     return a + b

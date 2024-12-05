@@ -53,17 +53,18 @@ def test_sparse_mul_scalar():
     expected = np.array([[2, 0, 0], [0, 0, 2]], dtype=np.float32)
     assert np.allclose(c_np, expected)
 
-def test_matmul():
+def test_sparse_sparse_matmul():
     a = np.random.randint(low=1, high=20)
     b = np.random.randint(low=1, high=20)
     c = np.random.randint(low=1, high=20)
 
-    mat_1 = nd.sparse_ndarray.SparseNDArray.create_random_matrix((a, b))
-    mat_2 = nd.sparse_ndarray.SparseNDArray.create_random_matrix((b, c))
+    mat_1 = nd.sparse_ndarray.SparseNDArray.create_random_sparse_matrix((a, b))
+    mat_2 = nd.sparse_ndarray.SparseNDArray.create_random_sparse_matrix((b, c))
 
     mat_1_sparse = nd.sparse_ndarray.SparseNDArray.to_sparse(mat_1, device=ndl.cpu())
     mat_2_sparse = nd.sparse_ndarray.SparseNDArray.to_sparse(mat_2, device=ndl.cpu())
 
+    # breakpoint()
     mat_3_sparse = mat_1_sparse @ mat_2_sparse
 
     # mat_3_np = mat_3_sparse.to_numpy_array()

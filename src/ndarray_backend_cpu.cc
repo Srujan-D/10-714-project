@@ -1091,26 +1091,24 @@ namespace needle
             assert(out->size == b.num_cols * a.num_rows && "Output array size must match dense matrix size");
             assert(a.num_cols == b.num_rows && "Number of columns in sparse matrix `a` must match number of rows in sparse matrix `b`");
 
-            // Create temporary arrays for column-wise operations
-            AlignedArray col_vec(a.num_cols);
-            AlignedArray result_vec(a.num_rows);
+            // Initialize output matrix to zero
+            std::fill(out->ptr, out->ptr + out->size, 0);
 
-            // Process each column of b separately
-            for (size_t col = 0; col < b.num_cols; col++)
-            {
-                // Extract column from b
-                for (size_t i = 0; i < b.num_rows; i++)
-                {
-                    col_vec.ptr[i] = b.data[b.indptr[i] + col];
-                }
+            // Iterate through rows of matrix a
+            for (size_t i = 0; i < a.num_rows; i++) {
+                // For each non-zero element in row i of matrix a
+                for (int k = a.indptr[i]; k < a.indptr[i + 1]; k++) {
+                    scalar_t val_a = a.data[k];
+                    int col_a = a.indices[k];
 
-                // Multiply sparse matrix with this column
-                SparseMatDenseVecMul(a, col_vec, &result_vec);
+                    // For each non-zero element in row col_a of matrix b
+                    for (int j = b.indptr[col_a]; j < b.indptr[col_a + 1]; j++) {
+                        scalar_t val_b = b.data[j];
+                        int col_b = b.indices[j];
 
-                // Store result in appropriate column of out
-                for (size_t i = 0; i < a.num_rows; i++)
-                {
-                    out->ptr[i * b.num_cols + col] = result_vec.ptr[i];
+                        // Accumulate product in the result matrix
+                        out->ptr[i * b.num_cols + col_b] += val_a * val_b;
+                    }
                 }
             }
         }
