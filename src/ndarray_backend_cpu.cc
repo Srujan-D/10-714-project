@@ -634,99 +634,154 @@ namespace needle
         Depending on whether B is sparse or not, we have two different kernels.
         */
 
-        // struct SparseArray
-        // {
-        //     scalar_t *data;  // Non-zero values
-        //     int *indices;    // Column indices
-        //     int *indptr;     // Row pointers
-        //     size_t nnz;      // Number of non-zero elements
-        //     size_t num_rows; // Number of rows
-        //     size_t num_cols; // Number of columns
-
-        //     SparseArray(size_t nnz, size_t num_rows, size_t num_cols)
-        //         : nnz(nnz), num_rows(num_rows), num_cols(num_cols)
-        //     {
-        //         int ret;
-        //         ret = posix_memalign((void **)&data, ALIGNMENT, nnz * sizeof(scalar_t));
-        //         if (ret != 0)
-        //             throw std::bad_alloc();
-        //         ret = posix_memalign((void **)&indices, ALIGNMENT, nnz * sizeof(int));
-        //         if (ret != 0)
-        //             throw std::bad_alloc();
-        //         ret = posix_memalign((void **)&indptr, ALIGNMENT, (num_rows + 1) * sizeof(int));
-        //         if (ret != 0)
-        //             throw std::bad_alloc();
-        //     }
-
-        //     ~SparseArray()
-        //     {
-        //         free(data);
-        //         free(indices);
-        //         free(indptr);
-        //     }
-        // };
-
         struct SparseArray
         {
-            scalar_t *data;  // Non-zero values
-            int *indices;    // Column indices
-            int *indptr;     // Row pointers
-            size_t nnz;      // Number of non-zero elements
-            size_t num_rows; // Number of rows
-            size_t num_cols; // Number of columns
+            // scalar_t *data;  // Non-zero values
+            // int *indices;    // Column indices
+            // int *indptr;     // Row pointers
+            // size_t nnz;      // Number of non-zero elements
+            // size_t num_rows; // Number of rows
+            // size_t num_cols; // Number of columns
+
+            scalar_t *data = nullptr;
+            int *indices = nullptr;
+            int *indptr = nullptr;
+            size_t nnz = 0;
+            size_t num_rows = 0;
+            size_t num_cols = 0;
 
             SparseArray(size_t nnz, size_t num_rows, size_t num_cols)
                 : nnz(nnz), num_rows(num_rows), num_cols(num_cols)
             {
-                int ret;
-                ret = posix_memalign((void **)&data, ALIGNMENT, nnz * sizeof(scalar_t));
-                if (ret != 0)
+                if (posix_memalign((void **)&data, ALIGNMENT, nnz * sizeof(scalar_t)) != 0)
                     throw std::bad_alloc();
-                ret = posix_memalign((void **)&indices, ALIGNMENT, nnz * sizeof(int));
-                if (ret != 0)
+                if (posix_memalign((void **)&indices, ALIGNMENT, nnz * sizeof(int)) != 0)
                     throw std::bad_alloc();
-                ret = posix_memalign((void **)&indptr, ALIGNMENT, (num_rows + 1) * sizeof(int));
-                if (ret != 0)
+                if (posix_memalign((void **)&indptr, ALIGNMENT, (num_rows + 1) * sizeof(int)) != 0)
                     throw std::bad_alloc();
+
+                std::fill(data, data + nnz, 0);
+                std::fill(indices, indices + nnz, 0);
+                std::fill(indptr, indptr + num_rows + 1, 0);
             }
 
+            // ~SparseArray()
+            // {
+            //     if (data)
+            //         free(data);
+            //     if (indices)
+            //         free(indices);
+            //     if (indptr)
+            //         free(indptr);
+            // }
             ~SparseArray()
             {
-                free(data);
-                free(indices);
-                free(indptr);
+                if (data)
+                {
+                    free(data);
+                    data = nullptr;
+                }
+                if (indices)
+                {
+                    free(indices);
+                    indices = nullptr;
+                }
+                if (indptr)
+                {
+                    free(indptr);
+                    indptr = nullptr;
+                }
             }
 
-            void from_components(py::list data_list, py::list indices_list, py::list indptr_list)
-            {
-                assert(data_list.size() == nnz && "Data size mismatch");
-                assert(indices_list.size() == nnz && "Indices size mismatch");
-                assert(indptr_list.size() == num_rows + 1 && "Indptr size mismatch");
+            // SparseArray *from_components(py::list data_list, py::list indices_list, py::list indptr_list)
+            // {
+            //     if (data_list.size() == 0 && indices_list.size() == 0 && indptr_list.size() == 0)
+            //     {
+            //         // Initialize as empty sparse array
+            //         return this;
+            //     }
 
+            //     assert(data_list.size() == nnz && "Data size mismatch");
+            //     assert(indices_list.size() == nnz && "Indices size mismatch");
+            //     assert(indptr_list.size() == num_rows + 1 && "Indptr size mismatch");
+
+            //     for (size_t i = 0; i < nnz; i++)
+            //     {
+            //         data[i] = py::cast<scalar_t>(data_list[i]);
+            //         indices[i] = py::cast<int>(indices_list[i]);
+            //     }
+
+            //     for (size_t i = 0; i < num_rows + 1; i++)
+            //     {
+            //         indptr[i] = py::cast<int>(indptr_list[i]);
+            //     }
+
+            //     return this;
+            // }
+            SparseArray &from_components(py::list data_list, py::list indices_list, py::list indptr_list)
+            {
+                // Validate input sizes
+                if (data_list.size() != nnz)
+                {
+                    throw std::invalid_argument("Data size mismatch: expected " + std::to_string(nnz) +
+                                                ", got " + std::to_string(data_list.size()));
+                }
+                if (indices_list.size() != nnz)
+                {
+                    throw std::invalid_argument("Indices size mismatch: expected " + std::to_string(nnz) +
+                                                ", got " + std::to_string(indices_list.size()));
+                }
+                if (indptr_list.size() != num_rows + 1)
+                {
+                    throw std::invalid_argument("Indptr size mismatch: expected " + std::to_string(num_rows + 1) +
+                                                ", got " + std::to_string(indptr_list.size()));
+                }
+
+                // Convert Python lists to C++ arrays
+                std::vector<scalar_t> data_vector = py::cast<std::vector<scalar_t>>(data_list);
+                std::vector<int> indices_vector = py::cast<std::vector<int>>(indices_list);
+                std::vector<int> indptr_vector = py::cast<std::vector<int>>(indptr_list);
+
+                // Copy data to internal arrays
                 for (size_t i = 0; i < nnz; i++)
                 {
-                    data[i] = py::cast<scalar_t>(data_list[i]);
-                    indices[i] = py::cast<int>(indices_list[i]);
+                    data[i] = data_vector[i];
+                    indices[i] = indices_vector[i];
                 }
 
                 for (size_t i = 0; i < num_rows + 1; i++)
                 {
-                    indptr[i] = py::cast<int>(indptr_list[i]);
+                    indptr[i] = indptr_vector[i];
                 }
+
+                return *this;
             }
 
-            // void from_components(const std::vector<scalar_t> &data_vec,
-            //                      const std::vector<int> &indices_vec,
-            //                      const std::vector<int> &indptr_vec)
-            // {
-            //     assert(data_vec.size() == nnz && "Data size mismatch");
-            //     assert(indices_vec.size() == nnz && "Indices size mismatch");
-            //     assert(indptr_vec.size() == num_rows + 1 && "Indptr size mismatch");
+            void from_cpp_components(const vector<scalar_t> &data_list, const vector<int> &indices_list, const vector<int> &indptr_list)
+            {
+                // fill the sparse array with the given data
+                std::fill(this->data, this->data + this->nnz, 0);
+                std::fill(this->indices, this->indices + this->nnz, 0);
+                std::fill(this->indptr, this->indptr + this->num_rows + 1, 0);
 
-            //     std::memcpy(data, data_vec.data(), nnz * sizeof(scalar_t));
-            //     std::memcpy(indices, indices_vec.data(), nnz * sizeof(int));
-            //     std::memcpy(indptr, indptr_vec.data(), (num_rows + 1) * sizeof(int));
-            // }
+                // Copy the data
+                for (size_t i = 0; i < data_list.size(); i++)
+                {
+                    cout << "data_list[i]: " << data_list[i] << endl;
+                    this->data[i] = data_list[i];
+                    cout << "data size after copy 1: " << this->data[i] << endl;
+                    this->indices[i] = indices_list[i];
+                }
+
+                for (size_t i = 0; i < indptr_list.size(); i++)
+                {
+                    this->indptr[i] = indptr_list[i];
+                }
+
+                this->nnz = data_list.size();
+
+                cout << "completed copying" << endl;
+            }
         };
 
         // void from_dense(const scalar_t *dense_matrix, size_t rows, size_t cols)
@@ -755,49 +810,127 @@ namespace needle
         // }
 
         // First overload - Sparse + Dense
-        void SparseEwiseAdd(const SparseArray &a, const AlignedArray &b, AlignedArray *out) {
+        void SparseEwiseAdd(const SparseArray &a, const AlignedArray &b, AlignedArray *out)
+        {
             assert(out->size == b.size && "Output array size must match dense matrix size");
             assert(out->size == a.num_rows * a.num_cols && "Dimensions of sparse and dense matrices must match");
 
-            for (size_t i = 0; i < a.num_rows; i++) {
-                for (int j = a.indptr[i]; j < a.indptr[i + 1]; j++) {
+            for (size_t i = 0; i < a.num_rows; i++)
+            {
+                for (int j = a.indptr[i]; j < a.indptr[i + 1]; j++)
+                {
                     size_t dense_index = i * a.num_cols + a.indices[j];
                     out->ptr[dense_index] = a.data[j] + b.ptr[dense_index];
                 }
             }
         }
 
-        // Second overload - Dense + Sparse 
-        void SparseEwiseAdd(const AlignedArray &a, const SparseArray &b, AlignedArray *out) {
+        // Second overload - Dense + Sparse
+        void SparseEwiseAdd(const AlignedArray &a, const SparseArray &b, AlignedArray *out)
+        {
             assert(out->size == a.size && "Output array size must match dense matrix size");
             assert(out->size == b.num_rows * b.num_cols && "Dimensions of sparse and dense matrices must match");
 
-            for (size_t i = 0; i < b.num_rows; i++) {
-                for (int j = b.indptr[i]; j < b.indptr[i + 1]; j++) {
+            for (size_t i = 0; i < b.num_rows; i++)
+            {
+                for (int j = b.indptr[i]; j < b.indptr[i + 1]; j++)
+                {
                     size_t dense_index = i * b.num_cols + b.indices[j];
                     out->ptr[dense_index] = a.ptr[dense_index] + b.data[j];
                 }
             }
         }
 
-        // Third overload - Sparse + Sparse
-        void SparseEWiseAdd(const SparseArray &a, const SparseArray &b, AlignedArray *out) {
+        // Third overload - Sparse + Sparse --> Output is dense
+        void SparseEWiseAdd(const SparseArray &a, const SparseArray &b, AlignedArray *out)
+        {
             assert(out->size == a.num_rows * a.num_cols && "Output array size must match sparse matrix size");
             assert(out->size == b.num_rows * b.num_cols && "Dimensions of sparse matrices must match");
 
-            for (size_t i = 0; i < a.num_rows; i++) {
-                for (int j = a.indptr[i]; j < a.indptr[i + 1]; j++) {
+            for (size_t i = 0; i < a.num_rows; i++)
+            {
+                for (int j = a.indptr[i]; j < a.indptr[i + 1]; j++)
+                {
                     size_t dense_index = i * a.num_cols + a.indices[j];
                     out->ptr[dense_index] = a.data[j];
                 }
             }
 
-            for (size_t i = 0; i < b.num_rows; i++) {
-                for (int j = b.indptr[i]; j < b.indptr[i + 1]; j++) {
+            for (size_t i = 0; i < b.num_rows; i++)
+            {
+                for (int j = b.indptr[i]; j < b.indptr[i + 1]; j++)
+                {
                     size_t dense_index = i * b.num_cols + b.indices[j];
                     out->ptr[dense_index] += b.data[j];
                 }
             }
+        }
+
+        // Fourth overload - Sparse + Sparse --> Output is sparse
+        void SparseEWiseAdd(const SparseArray &a, const SparseArray &b, SparseArray *out)
+        {
+            assert(out->num_rows == a.num_rows && out->num_cols == a.num_cols && "Output array size must match matrix dimensions");
+            assert(a.num_rows == b.num_rows && a.num_cols == b.num_cols && "Input matrices dimensions must match");
+
+            // indptr needs num_rows + 1 elements because:
+            // - Elements 0 to num_rows-1 store starting positions for each row
+            // - Last element stores total number of non-zero elements
+            vector<int> indptr(a.num_rows + 1, 0);
+            vector<int> indices;
+            vector<scalar_t> data;
+
+            for (size_t i = 0; i < a.num_rows; i++)
+            {
+                indptr[i] = data.size();
+
+                int j_a = a.indptr[i];
+                int j_b = b.indptr[i];
+
+                while (j_a < a.indptr[i + 1] && j_b < b.indptr[i + 1])
+                {
+                    if (a.indices[j_a] == b.indices[j_b])
+                    {
+                        data.push_back(a.data[j_a] + b.data[j_b]);
+                        cout << "data size after push 1: " << data.size() << endl;
+                        indices.push_back(a.indices[j_a]);
+                        j_a++;
+                        j_b++;
+                    }
+                    else if (a.indices[j_a] < b.indices[j_b])
+                    {
+                        data.push_back(a.data[j_a]);
+                        cout << "data size after push 2: " << data.size() << endl;
+                        indices.push_back(a.indices[j_a]);
+                        j_a++;
+                    }
+                    else
+                    {
+                        data.push_back(b.data[j_b]);
+                        cout << "data size after push 3: " << data.size() << endl;
+                        indices.push_back(b.indices[j_b]);
+                        j_b++;
+                    }
+                }
+
+                while (j_a < a.indptr[i + 1])
+                {
+                    data.push_back(a.data[j_a]);
+                    cout << "data size after push 4: " << data.size() << endl;
+                    indices.push_back(a.indices[j_a]);
+                    j_a++;
+                }
+
+                while (j_b < b.indptr[i + 1])
+                {
+                    data.push_back(b.data[j_b]);
+                    cout << "data size after push 5: " << data.size() << endl;
+                    indices.push_back(b.indices[j_b]);
+                    j_b++;
+                }
+            }
+            indptr[a.num_rows] = data.size();
+
+            out->from_cpp_components(data, indices, indptr);
         }
 
         void SparseScalarAdd(const SparseArray &a, scalar_t val, AlignedArray *out)
@@ -816,7 +949,8 @@ namespace needle
             assert(out->size == a.num_rows * a.num_cols && "Output array size must match sparse matrix size");
 
             // Initialize all elements to val
-            for (size_t i = 0; i < out->size; i++) {
+            for (size_t i = 0; i < out->size; i++)
+            {
                 out->ptr[i] = val;
             }
 
@@ -831,38 +965,9 @@ namespace needle
             }
         }
 
-        // void SparseEwiseMul(const SparseArray &a, const AlignedArray &b, AlignedArray *out)
-        // {
-        //     /**
-        //      * Element-wise multiplication of sparse matrix `a` and dense matrix `b`.
-        //      * Result is stored in dense matrix `out`.
-        //      *
-        //      * Inputs:
-        //      *  - a: Sparse matrix in CSR format.
-        //      *  - b: Dense matrix.
-        //      *  - out: Output dense matrix (must have the same dimensions as `b`).
-        //      */
-
-        //     // Ensure dimensions match
-        //     assert(out->size == b.size && "Output array size must match dense matrix size");
-        //     assert(out->size == a.num_rows * a.num_cols && "Dimensions of sparse and dense matrices must match");
-
-        //     // // Initialize the output array to the values of the dense matrix `b`
-        //     // std::memcpy(out->ptr, b.ptr, b.size * sizeof(scalar_t));
-
-        //     // Perform sparse element-wise multiplication
-        //     for (size_t i = 0; i < a.num_rows; i++)
-        //     {
-        //         for (int j = a.indptr[i]; j < a.indptr[i + 1]; j++)
-        //         {
-        //             size_t dense_index = i * a.num_cols + a.indices[j];
-        //             out->ptr[dense_index] = a.data[j] * b.ptr[dense_index];
-        //         }
-        //     }
-        // }
-        
         // First overload - Sparse * Dense
-        void SparseEwiseMul(const SparseArray &a, const AlignedArray &b, AlignedArray *out) {
+        void SparseEwiseMul(const SparseArray &a, const AlignedArray &b, AlignedArray *out)
+        {
             assert(out->size == b.size && "Output array size must match dense matrix size");
             assert(out->size == a.num_rows * a.num_cols && "Dimensions of sparse and dense matrices must match");
 
@@ -870,8 +975,10 @@ namespace needle
             std::fill(out->ptr, out->ptr + out->size, 0);
 
             // Multiply only non-zero elements
-            for (size_t i = 0; i < a.num_rows; i++) {
-                for (int j = a.indptr[i]; j < a.indptr[i + 1]; j++) {
+            for (size_t i = 0; i < a.num_rows; i++)
+            {
+                for (int j = a.indptr[i]; j < a.indptr[i + 1]; j++)
+                {
                     size_t dense_index = i * a.num_cols + a.indices[j];
                     out->ptr[dense_index] = a.data[j] * b.ptr[dense_index];
                 }
@@ -879,7 +986,8 @@ namespace needle
         }
 
         // Second overload - Dense * Sparse
-        void SparseEwiseMul(const AlignedArray &a, const SparseArray &b, AlignedArray *out) {
+        void SparseEwiseMul(const AlignedArray &a, const SparseArray &b, AlignedArray *out)
+        {
             assert(out->size == a.size && "Output array size must match dense matrix size");
             assert(out->size == b.num_rows * b.num_cols && "Dimensions of sparse and dense matrices must match");
 
@@ -887,16 +995,19 @@ namespace needle
             std::fill(out->ptr, out->ptr + out->size, 0);
 
             // Multiply only non-zero elements
-            for (size_t i = 0; i < b.num_rows; i++) {
-                for (int j = b.indptr[i]; j < b.indptr[i + 1]; j++) {
+            for (size_t i = 0; i < b.num_rows; i++)
+            {
+                for (int j = b.indptr[i]; j < b.indptr[i + 1]; j++)
+                {
                     size_t dense_index = i * b.num_cols + b.indices[j];
                     out->ptr[dense_index] = a.ptr[dense_index] * b.data[j];
                 }
             }
         }
 
-        // Third overload - Sparse * Sparse
-        void SparseEwiseMul(const SparseArray &a, const SparseArray &b, AlignedArray *out) {
+        // Third overload - Sparse * Sparse --> Output is dense
+        void SparseEwiseMul(const SparseArray &a, const SparseArray &b, AlignedArray *out)
+        {
             assert(out->size == a.num_rows * a.num_cols && "Output array size must match matrix dimensions");
             assert(a.num_rows == b.num_rows && a.num_cols == b.num_cols && "Dimensions of sparse matrices must match");
 
@@ -904,17 +1015,21 @@ namespace needle
             std::fill(out->ptr, out->ptr + out->size, 0);
 
             // For each row
-            for (size_t i = 0; i < a.num_rows; i++) {
+            for (size_t i = 0; i < a.num_rows; i++)
+            {
                 // For each non-zero element in row i of matrix a
-                for (int j_a = a.indptr[i]; j_a < a.indptr[i + 1]; j_a++) {
+                for (int j_a = a.indptr[i]; j_a < a.indptr[i + 1]; j_a++)
+                {
                     int col_a = a.indices[j_a];
-                    
+
                     // For each non-zero element in row i of matrix b
-                    for (int j_b = b.indptr[i]; j_b < b.indptr[i + 1]; j_b++) {
+                    for (int j_b = b.indptr[i]; j_b < b.indptr[i + 1]; j_b++)
+                    {
                         int col_b = b.indices[j_b];
-                        
+
                         // If both matrices have non-zero elements in the same position
-                        if (col_a == col_b) {
+                        if (col_a == col_b)
+                        {
                             size_t dense_index = i * a.num_cols + col_a;
                             out->ptr[dense_index] = a.data[j_a] * b.data[j_b];
                         }
@@ -922,29 +1037,70 @@ namespace needle
                 }
             }
         }
-        void SparseScalarMul(const SparseArray &a, scalar_t val, AlignedArray *out)
+
+        // Fourth overload - Sparse * Sparse --> Output is sparse
+        void SparseEwiseMul(const SparseArray &a, const SparseArray &b, SparseArray *out)
+        {
+            assert(out->num_rows == a.num_rows && out->num_cols == a.num_cols && "Output array size must match matrix dimensions");
+
+            vector<int> indptr(a.num_rows + 1, 0);
+            vector<int> indices;
+            vector<scalar_t> data;
+
+            for (size_t i = 0; i < a.num_rows; i++)
+            {
+                indptr[i] = data.size();
+
+                for (int j_a = a.indptr[i]; j_a < a.indptr[i + 1]; j_a++)
+                {
+                    int col_a = a.indices[j_a];
+
+                    // For each non-zero element in row i of matrix b
+                    for (int j_b = b.indptr[i]; j_b < b.indptr[i + 1]; j_b++)
+                    {
+                        int col_b = b.indices[j_b];
+
+                        // If both matrices have non-zero elements in the same position
+                        if (col_a == col_b)
+                        {
+                            indices.push_back(col_a);
+                            data.push_back(a.data[j_a] * b.data[j_b]);
+                            break;
+                        }
+                    }
+                }
+            }
+            indptr[a.num_rows] = data.size();
+
+            out->from_cpp_components(data, indices, indptr);
+        }
+
+        void SparseScalarMul(const SparseArray &a, scalar_t val, SparseArray *out)
         {
             /**
              * Scalar multiplication of sparse matrix `a` with scalar value `val`.
-             * Result is stored in dense matrix `out`.
+             * Result is stored in sparse matrix `out`.
              *
              * Inputs:
              *  - a: Sparse matrix in CSR format.
              *  - val: Scalar value.
-             *  - out: Output dense matrix (must have the same dimensions as `a`).
+             *  - out: Output sparse matrix (must have the same dimensions as `a`).
              */
 
             // Ensure dimensions match
-            assert(out->size == a.num_rows * a.num_cols && "Output array size must match sparse matrix size");
+            assert(out->num_rows == a.num_rows && out->num_cols == a.num_cols &&
+                   "Output dimensions must match input dimensions");
 
-            // Perform sparse scalar multiplication
-            for (size_t i = 0; i < a.num_rows; i++)
+            // Copy over the indices and indptr arrays since structure stays same
+            for (size_t i = 0; i < a.nnz; i++)
             {
-                for (int j = a.indptr[i]; j < a.indptr[i + 1]; j++)
-                {
-                    size_t dense_index = i * a.num_cols + a.indices[j];
-                    out->ptr[dense_index] = a.data[j] * val;
-                }
+                out->indices[i] = a.indices[i];
+                out->data[i] = a.data[i] * val;
+            }
+
+            for (size_t i = 0; i <= a.num_rows; i++)
+            {
+                out->indptr[i] = a.indptr[i];
             }
         }
 
@@ -976,21 +1132,25 @@ namespace needle
             }
         }
 
-        void SparseMatSparseVecMul(const SparseArray &a, const SparseArray &b, AlignedArray *out)
+        void SparseMatSparseVecMul(const SparseArray &a, const SparseArray &b, SparseArray *out)
         {
             /**
              * Matrix-vector multiplication of sparse matrix `a` and sparse vector `b`.
-             * Result is stored in dense vector `out`.
+             * Result is stored in sparse vector `out`.
              *
              * Inputs:
              *  - a: Sparse matrix in CSR format.
              *  - b: Sparse vector in CSR format.
-             *  - out: Output dense vector (must have the same dimensions as `b`).
+             *  - out: Output sparse vector.
              */
 
             // Ensure dimensions match
-            assert(out->size == b.num_cols && "Output array size must match sparse vector size");
-            assert(a.num_cols == b.num_rows && "Number of columns in sparse matrix must match number of rows in sparse vector");
+            assert(out->num_rows == a.num_rows && "Output rows must match matrix rows");
+            assert(a.num_cols == b.num_rows && "Number of columns in matrix must match number of rows in vector");
+
+            vector<int> indptr(a.num_rows + 1, 0);
+            vector<int> indices;
+            vector<scalar_t> data;
 
             // Perform sparse matrix-vector multiplication
             for (size_t i = 0; i < a.num_rows; i++)
@@ -998,10 +1158,21 @@ namespace needle
                 scalar_t sum = 0;
                 for (int j = a.indptr[i]; j < a.indptr[i + 1]; j++)
                 {
-                    sum += a.data[j] * b.data[b.indptr[a.indices[j]]];
+                    scalar_t product = a.data[j] * b.data[b.indptr[a.indices[j]]];
+                    if (product != 0)
+                    {
+                        sum += product;
+                    }
                 }
-                out->ptr[i] = sum;
+                if (sum != 0)
+                {
+                    indices.push_back(i);
+                    data.push_back(sum);
+                }
+                indptr[i + 1] = data.size();
             }
+
+            out->from_cpp_components(data, indices, indptr);
         }
 
         // void SparseMatDenseMatMul(const SparseArray &a, const AlignedArray &b, AlignedArray *out)
@@ -1010,67 +1181,81 @@ namespace needle
         //      * Matrix-matrix multiplication of sparse matrix `a` and dense matrix `b`.
         //      * Result is stored in dense matrix `out`.
         //      *
+        //      * Optimized implementation using column-wise vector multiplication.
+        //      *
         //      * Inputs:
         //      *  - a: Sparse matrix in CSR format.
         //      *  - b: Dense matrix.
-        //      *  - out: Output dense matrix (must have the same dimensions as `b`).
+        //      *  - out: Output dense matrix.
         //      */
 
         //     // Ensure dimensions match
         //     assert(out->size == b.size && "Output array size must match dense matrix size");
-        //     assert(out->size == a.num_rows * b.num_cols && "Dimensions of sparse and dense matrices must match");
+        //     // assert(out->size == a.num_rows * b.num_cols && "Dimensions of sparse and dense matrices must match");
 
-        //     // Perform sparse matrix-matrix multiplication
-        //     for (size_t i = 0; i < a.num_rows; i++)
+        //     // Create temporary arrays for column-wise operations
+        //     AlignedArray col_vec(a.num_cols);
+        //     AlignedArray result_vec(a.num_rows);
+
+        //     // Process each column of b separately
+        //     for (size_t col = 0; col < b.size / a.num_cols; col++)
         //     {
-        //         for (int j = a.indptr[i]; j < a.indptr[i + 1]; j++)
+        //         // Extract column from b
+        //         for (size_t i = 0; i < a.num_cols; i++)
         //         {
-        //             for (size_t k = 0; k < b.num_cols; k++)
-        //             {
-        //                 out->ptr[i * b.num_cols + k] += a.data[j] * b.ptr[a.indices[j] * b.num_cols + k];
-        //             }
+        //             col_vec.ptr[i] = b.ptr[i * (b.size / a.num_cols) + col];
+        //         }
+
+        //         // Multiply sparse matrix with this column
+        //         SparseMatDenseVecMul(a, col_vec, &result_vec);
+
+        //         // Store result in appropriate column of out
+        //         for (size_t i = 0; i < a.num_rows; i++)
+        //         {
+        //             out->ptr[i * (b.size / a.num_cols) + col] = result_vec.ptr[i];
         //         }
         //     }
         // }
-
         void SparseMatDenseMatMul(const SparseArray &a, const AlignedArray &b, AlignedArray *out)
         {
             /**
              * Matrix-matrix multiplication of sparse matrix `a` and dense matrix `b`.
              * Result is stored in dense matrix `out`.
              *
-             * Optimized implementation using column-wise vector multiplication.
-             *
              * Inputs:
              *  - a: Sparse matrix in CSR format.
-             *  - b: Dense matrix.
+             *  - b: Dense matrix (row-major layout).
              *  - out: Output dense matrix.
              */
 
             // Ensure dimensions match
-            assert(out->size == b.size && "Output array size must match dense matrix size");
-            // assert(out->size == a.num_rows * b.num_cols && "Dimensions of sparse and dense matrices must match");
+            size_t m = a.num_rows; // Number of rows in sparse matrix
+            size_t n = a.num_cols; // Number of columns in sparse matrix
+            size_t p = b.size / n; // Number of columns in dense matrix b
 
-            // Create temporary arrays for column-wise operations
-            AlignedArray col_vec(a.num_cols);
-            AlignedArray result_vec(a.num_rows);
+            assert(out->size == m * p && "Output matrix dimensions must match sparse-dense multiplication result");
+            assert(b.size == n * p && "Dimensions of sparse and dense matrices must match");
 
-            // Process each column of b separately
-            for (size_t col = 0; col < b.size / a.num_cols; col++)
+            // Temporary storage for sparse matrix-vector multiplication results
+            AlignedArray result_vec(m);
+
+            // Process each column of dense matrix b
+            for (size_t col = 0; col < p; col++)
             {
-                // Extract column from b
-                for (size_t i = 0; i < a.num_cols; i++)
+                // Create a temporary AlignedArray for the current column
+                AlignedArray col_vec(n);
+                for (size_t i = 0; i < n; i++)
                 {
-                    col_vec.ptr[i] = b.ptr[i * (b.size / a.num_cols) + col];
+                    col_vec.ptr[i] = b.ptr[i * p + col];
                 }
 
-                // Multiply sparse matrix with this column
+                // Perform sparse matrix-vector multiplication
                 SparseMatDenseVecMul(a, col_vec, &result_vec);
 
-                // Store result in appropriate column of out
-                for (size_t i = 0; i < a.num_rows; i++)
+                // Write results to the corresponding column in the output matrix
+                for (size_t i = 0; i < m; i++)
                 {
-                    out->ptr[i * (b.size / a.num_cols) + col] = result_vec.ptr[i];
+                    out->ptr[i * p + col] = result_vec.ptr[i];
                 }
             }
         }
@@ -1095,14 +1280,17 @@ namespace needle
             std::fill(out->ptr, out->ptr + out->size, 0);
 
             // Iterate through rows of matrix a
-            for (size_t i = 0; i < a.num_rows; i++) {
+            for (size_t i = 0; i < a.num_rows; i++)
+            {
                 // For each non-zero element in row i of matrix a
-                for (int k = a.indptr[i]; k < a.indptr[i + 1]; k++) {
+                for (int k = a.indptr[i]; k < a.indptr[i + 1]; k++)
+                {
                     scalar_t val_a = a.data[k];
                     int col_a = a.indices[k];
 
                     // For each non-zero element in row col_a of matrix b
-                    for (int j = b.indptr[col_a]; j < b.indptr[col_a + 1]; j++) {
+                    for (int j = b.indptr[col_a]; j < b.indptr[col_a + 1]; j++)
+                    {
                         scalar_t val_b = b.data[j];
                         int col_b = b.indices[j];
 
@@ -1112,12 +1300,73 @@ namespace needle
                 }
             }
         }
+
+        void SparseMatSparseMatMul(const SparseArray &a, const SparseArray &b, SparseArray *out)
+        {
+            /**
+             * Matrix-matrix multiplication of sparse matrix `a` and sparse matrix `b`.
+             * Result is stored in sparse matrix `out`.
+             */
+
+            // Ensure dimensions match
+            assert(out->num_rows == a.num_rows && out->num_cols == b.num_cols && "Output array dimensions must match result size");
+            assert(a.num_cols == b.num_rows && "Matrix dimensions do not allow multiplication");
+
+            // Initialize output CSR components
+            vector<int> indptr(a.num_rows + 1, 0);
+            vector<int> indices;
+            vector<scalar_t> data;
+
+            // Temporary storage for row accumulations
+            unordered_map<int, scalar_t> row_accumulator;
+
+            for (size_t i = 0; i < a.num_rows; i++)
+            {
+                row_accumulator.clear(); // Clear accumulator for the current row
+
+                // Iterate through non-zero elements in row `i` of `a`
+                for (int j = a.indptr[i]; j < a.indptr[i + 1]; j++)
+                {
+                    scalar_t val_a = a.data[j];
+                    int col_a = a.indices[j];
+
+                    // Multiply with non-zero elements in row `col_a` of `b`
+                    for (int k = b.indptr[col_a]; k < b.indptr[col_a + 1]; k++)
+                    {
+                        int col_b = b.indices[k];
+                        scalar_t val_b = b.data[k];
+
+                        // Accumulate the product
+                        row_accumulator[col_b] += val_a * val_b;
+                    }
+                }
+
+                // Add accumulated values to `data` and `indices` for the current row
+                vector<pair<int, scalar_t>> sorted_row(row_accumulator.begin(), row_accumulator.end());
+                sort(sorted_row.begin(), sorted_row.end()); // Ensure column indices are sorted
+
+                for (const auto &entry : sorted_row)
+                {
+                    if (abs(entry.second) > 1e-10) // Skip small numerical values for stability
+                    {
+                        indices.push_back(entry.first);
+                        data.push_back(entry.second);
+                    }
+                }
+
+                // Update `indptr` for the next row
+                indptr[i + 1] = data.size();
+            }
+            cout << "data size: " << data.size() << endl;
+            // Assign components to the output sparse array
+            out->from_cpp_components(data, indices, indptr);
+        }
     };
 } // namespace cpu
 
 PYBIND11_MODULE(ndarray_backend_cpu, m)
 {
-    
+
     using namespace needle;
     using namespace cpu;
 
@@ -1180,23 +1429,69 @@ PYBIND11_MODULE(ndarray_backend_cpu, m)
         .def_readonly("size", &AlignedArray::size);
     */
 
+    // py::class_<SparseArray>(m, "SparseArray")
+    //     .def(py::init<size_t, size_t, size_t>(), py::return_value_policy::take_ownership)
+    //     .def("from_components", &SparseArray::from_components, py::return_value_policy::reference)
+    //     // .def_readonly("data", &SparseArray::data)
+    //     // .def_readonly("indices", &SparseArray::indices)
+    //     // .def_readonly("indptr", &SparseArray::indptr)
+    //     .def_property_readonly("data", [](const SparseArray &self)
+    //                            { return py::cast(std::vector<scalar_t>(self.data, self.data + self.nnz)); })
+    //     .def_property_readonly("indices", [](const SparseArray &self)
+    //                            { return py::cast(std::vector<int>(self.indices, self.indices + self.nnz)); })
+    //     .def_property_readonly("indptr", [](const SparseArray &self)
+    //                            { return py::cast(std::vector<int>(self.indptr, self.indptr + self.num_rows + 1)); })
+
+    //     .def_readonly("nnz", &SparseArray::nnz)
+    //     .def_readonly("num_rows", &SparseArray::num_rows)
+    //     .def_readonly("num_cols", &SparseArray::num_cols);
+
     py::class_<SparseArray>(m, "SparseArray")
         .def(py::init<size_t, size_t, size_t>(), py::return_value_policy::take_ownership)
-        .def("from_components", &SparseArray::from_components);
+        .def("from_components", &SparseArray::from_components, py::return_value_policy::reference,
+             "Initialize the sparse array from components.",
+             py::arg("data_list"), py::arg("indices_list"), py::arg("indptr_list"))
+        .def_property_readonly("data", [](const SparseArray &self)
+                               { return py::array_t<scalar_t>(
+                                     {self.nnz},         // Shape
+                                     {sizeof(scalar_t)}, // Stride
+                                     self.data,          // Pointer to data
+                                     py::cast(self)      // Ensure SparseArray stays alive
+                                 ); })
+        .def_property_readonly("indices", [](const SparseArray &self)
+                               { return py::array_t<int>(
+                                     {self.nnz},    // Shape
+                                     {sizeof(int)}, // Stride
+                                     self.indices,  // Pointer to indices
+                                     py::cast(self) // Ensure SparseArray stays alive
+                                 ); })
+        .def_property_readonly("indptr", [](const SparseArray &self)
+                               { return py::array_t<int>(
+                                     {self.num_rows + 1}, // Shape
+                                     {sizeof(int)},       // Stride
+                                     self.indptr,         // Pointer to indptr
+                                     py::cast(self)       // Ensure SparseArray stays alive
+                                 ); })
+        .def_readonly("nnz", &SparseArray::nnz, "Number of non-zero elements")
+        .def_readonly("num_rows", &SparseArray::num_rows, "Number of rows in the sparse matrix")
+        .def_readonly("num_cols", &SparseArray::num_cols, "Number of columns in the sparse matrix");
 
-    m.def("sparse_ewise_add", static_cast<void (*)(const SparseArray&, const AlignedArray&, AlignedArray*)>(&SparseEwiseAdd));
-    m.def("sparse_ewise_add_dense", static_cast<void (*)(const AlignedArray&, const SparseArray&, AlignedArray*)>(&SparseEwiseAdd));
-    m.def("sparse_ewise_add_sparse", static_cast<void (*)(const SparseArray&, const SparseArray&, AlignedArray*)>(&SparseEWiseAdd));
-    
+    m.def("sparse_ewise_add_SDD", static_cast<void (*)(const SparseArray &, const AlignedArray &, AlignedArray *)>(&SparseEwiseAdd));
+    m.def("sparse_ewise_add_DSD", static_cast<void (*)(const AlignedArray &, const SparseArray &, AlignedArray *)>(&SparseEwiseAdd));
+    m.def("sparse_ewise_add_SSD", static_cast<void (*)(const SparseArray &, const SparseArray &, AlignedArray *)>(&SparseEWiseAdd));
+    m.def("sparse_ewise_add_SSS", static_cast<void (*)(const SparseArray &, const SparseArray &, SparseArray *)>(&SparseEWiseAdd));
+
     m.def("sparse_scalar_add", SparseScalarAdd);
 
-    m.def("sparse_ewise_mul", static_cast<void (*)(const SparseArray&, const AlignedArray&, AlignedArray*)>(&SparseEwiseMul));
-    m.def("sparse_ewise_mul_dense", static_cast<void (*)(const AlignedArray&, const SparseArray&, AlignedArray*)>(&SparseEwiseMul)); 
-    m.def("sparse_ewise_mul_sparse", static_cast<void (*)(const SparseArray&, const SparseArray&, AlignedArray*)>(&SparseEwiseMul));
+    m.def("sparse_ewise_mul_SDD", static_cast<void (*)(const SparseArray &, const AlignedArray &, AlignedArray *)>(&SparseEwiseMul));
+    m.def("sparse_ewise_mul_DSD", static_cast<void (*)(const AlignedArray &, const SparseArray &, AlignedArray *)>(&SparseEwiseMul));
+    m.def("sparse_ewise_mul_SSD", static_cast<void (*)(const SparseArray &, const SparseArray &, AlignedArray *)>(&SparseEwiseMul));
+    m.def("sparse_ewise_mul_SSS", static_cast<void (*)(const SparseArray &, const SparseArray &, SparseArray *)>(&SparseEwiseMul));
 
     m.def("sparse_scalar_mul", SparseScalarMul);
     m.def("sparse_mat_dense_vec_mul", SparseMatDenseVecMul);
     m.def("sparse_mat_sparse_vec_mul", SparseMatSparseVecMul);
     m.def("sparse_mat_dense_mat_mul", SparseMatDenseMatMul);
-    m.def("sparse_mat_sparse_mat_mul", SparseMatSparseMatMul);
+    m.def("sparse_mat_sparse_mat_mul", static_cast<void (*)(const SparseArray &, const SparseArray &, AlignedArray *)>(&SparseMatSparseMatMul));
+    m.def("sparse_mat_sparse_mat_mul_sparse", static_cast<void (*)(const SparseArray &, const SparseArray &, SparseArray *)>(&SparseMatSparseMatMul));
 }

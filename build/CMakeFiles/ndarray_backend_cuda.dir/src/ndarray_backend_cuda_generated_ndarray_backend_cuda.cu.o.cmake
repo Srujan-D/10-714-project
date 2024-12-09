@@ -105,7 +105,7 @@ endif()
 
 # This is the list of host compilation flags.  It C or CXX should already have
 # been chosen by FindCUDA.cmake.
-set(CMAKE_HOST_FLAGS  -O2 -march=native -fvisibility-inlines-hidden -fmessage-length=0 -march=nocona -mtune=haswell -ftree-vectorize -fPIC -fstack-protector-strong -fno-plt -O2 -ffunction-sections -pipe -isystem /home/srujan/miniconda3/envs/dls/include  -I/home/srujan/miniconda3/envs/dls/targets/x86_64-linux/include  -L/home/srujan/miniconda3/envs/dls/targets/x86_64-linux/lib -L/home/srujan/miniconda3/envs/dls/targets/x86_64-linux/lib/stubs -fPIC)
+set(CMAKE_HOST_FLAGS  -O2 -march=native  -fPIC)
 set(CMAKE_HOST_FLAGS_DEBUG -g)
 set(CMAKE_HOST_FLAGS_MINSIZEREL -Os -DNDEBUG)
 set(CMAKE_HOST_FLAGS_RELEASE -O3 -DNDEBUG)

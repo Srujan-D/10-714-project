@@ -36,7 +36,7 @@ CMAKE_CXX_COMPILER_AR:FILEPATH=/usr/bin/gcc-ar-11
 CMAKE_CXX_COMPILER_RANLIB:FILEPATH=/usr/bin/gcc-ranlib-11
 
 //Flags used by the CXX compiler during all build types.
-CMAKE_CXX_FLAGS:STRING=-fvisibility-inlines-hidden -fmessage-length=0 -march=nocona -mtune=haswell -ftree-vectorize -fPIC -fstack-protector-strong -fno-plt -O2 -ffunction-sections -pipe -isystem /home/srujan/miniconda3/envs/dls/include  -I/home/srujan/miniconda3/envs/dls/targets/x86_64-linux/include  -L/home/srujan/miniconda3/envs/dls/targets/x86_64-linux/lib -L/home/srujan/miniconda3/envs/dls/targets/x86_64-linux/lib/stubs
+CMAKE_CXX_FLAGS:STRING=
 
 //Flags used by the CXX compiler during DEBUG builds.
 CMAKE_CXX_FLAGS_DEBUG:STRING=-g
@@ -59,7 +59,7 @@ CMAKE_C_COMPILER_AR:FILEPATH=/usr/bin/gcc-ar-11
 CMAKE_C_COMPILER_RANLIB:FILEPATH=/usr/bin/gcc-ranlib-11
 
 //Flags used by the C compiler during all build types.
-CMAKE_C_FLAGS:STRING=-march=nocona -mtune=haswell -ftree-vectorize -fPIC -fstack-protector-strong -fno-plt -O2 -ffunction-sections -pipe -isystem /home/srujan/miniconda3/envs/dls/include  -I/home/srujan/miniconda3/envs/dls/targets/x86_64-linux/include  -L/home/srujan/miniconda3/envs/dls/targets/x86_64-linux/lib -L/home/srujan/miniconda3/envs/dls/targets/x86_64-linux/lib/stubs
+CMAKE_C_FLAGS:STRING=
 
 //Flags used by the C compiler during DEBUG builds.
 CMAKE_C_FLAGS_DEBUG:STRING=-g
@@ -77,7 +77,7 @@ CMAKE_C_FLAGS_RELWITHDEBINFO:STRING=-O2 -g -DNDEBUG
 CMAKE_DLLTOOL:FILEPATH=CMAKE_DLLTOOL-NOTFOUND
 
 //Flags used by the linker during all build types.
-CMAKE_EXE_LINKER_FLAGS:STRING=-Wl,-O2 -Wl,--sort-common -Wl,--as-needed -Wl,-z,relro -Wl,-z,now -Wl,--disable-new-dtags -Wl,--gc-sections -Wl,--allow-shlib-undefined -Wl,-rpath,/home/srujan/miniconda3/envs/dls/lib -Wl,-rpath-link,/home/srujan/miniconda3/envs/dls/lib -L/home/srujan/miniconda3/envs/dls/lib  -L/home/srujan/miniconda3/envs/dls/targets/x86_64-linux/lib -L/home/srujan/miniconda3/envs/dls/targets/x86_64-linux/lib/stubs
+CMAKE_EXE_LINKER_FLAGS:STRING=
 
 //Flags used by the linker during DEBUG builds.
 CMAKE_EXE_LINKER_FLAGS_DEBUG:STRING=
@@ -108,7 +108,7 @@ CMAKE_MAKE_PROGRAM:FILEPATH=/usr/bin/gmake
 
 //Flags used by the linker during the creation of modules during
 // all build types.
-CMAKE_MODULE_LINKER_FLAGS:STRING=-Wl,-O2 -Wl,--sort-common -Wl,--as-needed -Wl,-z,relro -Wl,-z,now -Wl,--disable-new-dtags -Wl,--gc-sections -Wl,--allow-shlib-undefined -Wl,-rpath,/home/srujan/miniconda3/envs/dls/lib -Wl,-rpath-link,/home/srujan/miniconda3/envs/dls/lib -L/home/srujan/miniconda3/envs/dls/lib  -L/home/srujan/miniconda3/envs/dls/targets/x86_64-linux/lib -L/home/srujan/miniconda3/envs/dls/targets/x86_64-linux/lib/stubs
+CMAKE_MODULE_LINKER_FLAGS:STRING=
 
 //Flags used by the linker during the creation of modules during
 // DEBUG builds.
@@ -152,7 +152,7 @@ CMAKE_READELF:FILEPATH=/usr/bin/readelf
 
 //Flags used by the linker during the creation of shared libraries
 // during all build types.
-CMAKE_SHARED_LINKER_FLAGS:STRING=-Wl,-O2 -Wl,--sort-common -Wl,--as-needed -Wl,-z,relro -Wl,-z,now -Wl,--disable-new-dtags -Wl,--gc-sections -Wl,--allow-shlib-undefined -Wl,-rpath,/home/srujan/miniconda3/envs/dls/lib -Wl,-rpath-link,/home/srujan/miniconda3/envs/dls/lib -L/home/srujan/miniconda3/envs/dls/lib  -L/home/srujan/miniconda3/envs/dls/targets/x86_64-linux/lib -L/home/srujan/miniconda3/envs/dls/targets/x86_64-linux/lib/stubs
+CMAKE_SHARED_LINKER_FLAGS:STRING=
 
 //Flags used by the linker during the creation of shared libraries
 // during DEBUG builds.
@@ -313,31 +313,31 @@ CUDA_cusparse_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libcusparse.so
 CUDA_nppc_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libnppc.so
 
 //"nppial" library
-CUDA_nppial_LIBRARY:FILEPATH=/home/srujan/miniconda3/envs/dls/lib/libnppial.so
+CUDA_nppial_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libnppial.so
 
 //"nppicc" library
-CUDA_nppicc_LIBRARY:FILEPATH=/home/srujan/miniconda3/envs/dls/lib/libnppicc.so
+CUDA_nppicc_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libnppicc.so
 
 //"nppidei" library
-CUDA_nppidei_LIBRARY:FILEPATH=/home/srujan/miniconda3/envs/dls/lib/libnppidei.so
+CUDA_nppidei_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libnppidei.so
 
 //"nppif" library
-CUDA_nppif_LIBRARY:FILEPATH=/home/srujan/miniconda3/envs/dls/lib/libnppif.so
+CUDA_nppif_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libnppif.so
 
 //"nppig" library
-CUDA_nppig_LIBRARY:FILEPATH=/home/srujan/miniconda3/envs/dls/lib/libnppig.so
+CUDA_nppig_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libnppig.so
 
 //"nppim" library
-CUDA_nppim_LIBRARY:FILEPATH=/home/srujan/miniconda3/envs/dls/lib/libnppim.so
+CUDA_nppim_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libnppim.so
 
 //"nppist" library
-CUDA_nppist_LIBRARY:FILEPATH=/home/srujan/miniconda3/envs/dls/lib/libnppist.so
+CUDA_nppist_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libnppist.so
 
 //"nppisu" library
-CUDA_nppisu_LIBRARY:FILEPATH=/home/srujan/miniconda3/envs/dls/lib/libnppisu.so
+CUDA_nppisu_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libnppisu.so
 
 //"nppitc" library
-CUDA_nppitc_LIBRARY:FILEPATH=/home/srujan/miniconda3/envs/dls/lib/libnppitc.so
+CUDA_nppitc_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libnppitc.so
 
 //"npps" library
 CUDA_npps_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libnpps.so
@@ -346,10 +346,10 @@ CUDA_npps_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libnpps.so
 CUDA_nvToolsExt_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/libnvToolsExt.so
 
 //Path to a library.
-CUDA_rt_LIBRARY:FILEPATH=/home/srujan/miniconda3/envs/dls/x86_64-conda-linux-gnu/sysroot/usr/lib/librt.so
+CUDA_rt_LIBRARY:FILEPATH=/usr/lib/x86_64-linux-gnu/librt.a
 
 //Dependencies for the target
-ndarray_backend_cuda_LIB_DEPENDS:STATIC=general;/usr/lib/x86_64-linux-gnu/libcudart_static.a;general;dl;general;/home/srujan/miniconda3/envs/dls/x86_64-conda-linux-gnu/sysroot/usr/lib/librt.so;general;/usr/lib/x86_64-linux-gnu/libcudart.so;
+ndarray_backend_cuda_LIB_DEPENDS:STATIC=general;/usr/lib/x86_64-linux-gnu/libcudart_static.a;general;dl;general;/usr/lib/x86_64-linux-gnu/librt.a;general;/usr/lib/x86_64-linux-gnu/libcudart.so;
 
 //Value Computed by CMake
 needle_BINARY_DIR:STATIC=/home/srujan/CMU/DLSys/project/build

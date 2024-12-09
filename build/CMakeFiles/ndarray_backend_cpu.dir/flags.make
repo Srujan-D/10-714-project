@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/g++
 CXX_DEFINES = -Dndarray_backend_cpu_EXPORTS
 
-CXX_INCLUDES = -isystem /home/srujan/miniconda3/envs/dls/include/python3.13
+CXX_INCLUDES = -isystem /home/srujan/miniconda3/envs/dls/include/python3.13 -isystem /home/srujan/miniconda3/envs/dls/include
 
-CXX_FLAGS = -std=c++11 -O2 -march=native -fvisibility-inlines-hidden -fmessage-length=0 -march=nocona -mtune=haswell -ftree-vectorize -fPIC -fstack-protector-strong -fno-plt -O2 -ffunction-sections -pipe -isystem /home/srujan/miniconda3/envs/dls/include  -I/home/srujan/miniconda3/envs/dls/targets/x86_64-linux/include  -L/home/srujan/miniconda3/envs/dls/targets/x86_64-linux/lib -L/home/srujan/miniconda3/envs/dls/targets/x86_64-linux/lib/stubs -fPIC -fvisibility=hidden
+CXX_FLAGS = -std=c++11 -O2 -march=native  -fPIC -fvisibility=hidden
 

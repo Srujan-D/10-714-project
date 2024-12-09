@@ -163,3 +163,9 @@ cython_debug/
 
 # *.pyc files and directories
 *.pyc
+# Python cache files - comprehensive
+__pycache__/
+*/__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyc

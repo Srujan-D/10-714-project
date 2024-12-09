@@ -612,7 +612,7 @@ ndarray_backend_cuda_EXTERNAL_OBJECTS = \
 /home/srujan/CMU/DLSys/project/python/needle/backend_ndarray/ndarray_backend_cuda.cpython-313-x86_64-linux-gnu.so: CMakeFiles/ndarray_backend_cuda.dir/src/ndarray_backend_cuda_generated_ndarray_backend_cuda.cu.o
 /home/srujan/CMU/DLSys/project/python/needle/backend_ndarray/ndarray_backend_cuda.cpython-313-x86_64-linux-gnu.so: CMakeFiles/ndarray_backend_cuda.dir/build.make
 /home/srujan/CMU/DLSys/project/python/needle/backend_ndarray/ndarray_backend_cuda.cpython-313-x86_64-linux-gnu.so: /usr/lib/x86_64-linux-gnu/libcudart_static.a
-/home/srujan/CMU/DLSys/project/python/needle/backend_ndarray/ndarray_backend_cuda.cpython-313-x86_64-linux-gnu.so: /home/srujan/miniconda3/envs/dls/x86_64-conda-linux-gnu/sysroot/usr/lib/librt.so
+/home/srujan/CMU/DLSys/project/python/needle/backend_ndarray/ndarray_backend_cuda.cpython-313-x86_64-linux-gnu.so: /usr/lib/x86_64-linux-gnu/librt.a
 /home/srujan/CMU/DLSys/project/python/needle/backend_ndarray/ndarray_backend_cuda.cpython-313-x86_64-linux-gnu.so: /usr/lib/x86_64-linux-gnu/libcudart.so
 /home/srujan/CMU/DLSys/project/python/needle/backend_ndarray/ndarray_backend_cuda.cpython-313-x86_64-linux-gnu.so: CMakeFiles/ndarray_backend_cuda.dir/link.txt
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --green --bold --progress-dir=/home/srujan/CMU/DLSys/project/build/CMakeFiles --progress-num=$(CMAKE_PROGRESS_2) "Linking CXX shared module /home/srujan/CMU/DLSys/project/python/needle/backend_ndarray/ndarray_backend_cuda.cpython-313-x86_64-linux-gnu.so"

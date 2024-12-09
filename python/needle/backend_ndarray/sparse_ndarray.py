@@ -4,7 +4,16 @@ from typing import Tuple
 import numpy as np
 from functools import reduce
 from . import ndarray_backend_cpu, ndarray_backend_numpy
-from .ndarray import prod, cuda, cpu_numpy, cpu, default_device, all_devices, NDArray, full
+from .ndarray import (
+    prod,
+    cuda,
+    cpu_numpy,
+    cpu,
+    default_device,
+    all_devices,
+    NDArray,
+    full,
+)
 
 
 class SparseNDArray:
@@ -32,8 +41,17 @@ class SparseNDArray:
             device = device if device is not None else default_device()
             array = self.make_sparse_from_numpy(other, device)
             self._init(array)
-        else:
-            raise ValueError(f"Unsupported type {type(other)}")
+        elif isinstance(other, tuple):
+            device = device if device is not None else default_device()
+            self._shape = other  # shape of the sparse array
+            self._device = device
+            self._data = []
+            self._csr_array = self._device.SparseArray(
+                0, self._shape[0], self._shape[1]
+            )
+            self.nnz = 0
+
+            # raise ValueError(f"Unsupported type {type(other)}")
 
     def _init(self, other):
         """Initialize SparseNDArray from another SparseNDArray."""
@@ -75,81 +93,20 @@ class SparseNDArray:
         array._device = device if device is not None else default_device()
 
         array._data = data
-        array._indices = indices
-        array._indptr = indptr
 
         # Create the C++ SparseArray backend
         array._csr_array = device.SparseArray(len(data), shape[0], shape[1])
+        if isinstance(data, np.ndarray):
+            data = data.tolist()
+        if isinstance(indices, np.ndarray):
+            indices = indices.tolist()
+        if isinstance(indptr, np.ndarray):
+            indptr = indptr.tolist()
         array._csr_array.from_components(data, indices, indptr)
 
         array.nnz = len(data)
 
         return array
-
-    # def _init(self, other):
-    #     self._shape = other._shape
-    #     self._device = other._device
-    #     self._data = other._data
-    #     self._indices = other._indices
-    #     self._indptr = other._indptr
-    #     self.nnz = len(self._data)
-
-    # @staticmethod
-    # def make_sparse_from_numpy(ndarray, device):
-    #     """
-    #     Convert a numpy dense array to SparseNDArray in CSR format.
-    #     """
-    #     # Ensure ndarray is 2D
-    #     if ndarray.ndim != 2:
-    #         raise ValueError("Only 2D arrays can be converted to SparseNDArray.")
-
-    #     rows, cols = ndarray.shape
-    #     indptr = [0]
-    #     indices = []
-    #     data = []
-
-    #     for i in range(rows):
-    #         for j in range(cols):
-    #             if ndarray[i, j] != 0:
-    #                 indices.append(j)
-    #                 data.append(ndarray[i, j])
-    #         indptr.append(len(indices))
-
-    #     return SparseNDArray.make((rows, cols), data, indices, indptr, device)
-
-    ## The function below is not needed, can be removed after confirmation later
-    # @staticmethod
-    # def make(shape, data, indices, indptr, device=None):
-    #     """Create a sparse ndarray from the given data."""
-    #     array = SparseNDArray.__new__(SparseNDArray)
-    #     array._shape = tuple(shape)
-    #     array._device = device
-    #     array._data = data
-    #     array._indices = indices  # column index
-    #     array._indptr = indptr  # row index
-    #     array.nnz = len(data)
-    #     return array
-
-    # @staticmethod
-    # def make(shape, data, indices, indptr, device=None):
-    #     """
-    #     Create a SparseNDArray from raw CSR components.
-    #     """
-    #     array = SparseNDArray.__new__(SparseNDArray)
-    #     array._shape = tuple(shape)
-    #     array._device = device
-    #     # TODO: Use a SparseArray object to store the data
-    #     # from NDArray, we can see that only the array of some size is created
-    #     # the actual values are stored in the SparseArray object afterwords using the respective operations
-
-    #     # array._csr_array = array.device.SparseArray()
-
-    #     # TODO: we probably dont need this np.ascontiguousarray and we might have to use members of the SparseArray object from C++
-    #     array._data = np.ascontiguousarray(data)
-    #     array._indices = np.ascontiguousarray(indices)
-    #     array._indptr = np.ascontiguousarray(indptr)
-    #     array.nnz = len(data)
-    #     return array
 
     @property
     def to_numpy_array(self):
@@ -157,10 +114,11 @@ class SparseNDArray:
         array = np.zeros(self._shape, dtype=np.float32)
         num_rows = self._shape[0]
         for i in range(num_rows):
-            start = self._indptr[i]
-            end = self._indptr[i + 1]
+            # breakpoint()
+            start = self._csr_array.indptr[i]
+            end = self._csr_array.indptr[i + 1]
             for j in range(start, end):
-                array[i, self._indices[j]] = self._data[j]
+                array[i, self._csr_array.indices[j]] = self._csr_array.data[j]
 
         return array
 
@@ -197,9 +155,11 @@ class SparseNDArray:
     def create_random_matrix(shape: Tuple[int, int]) -> np.ndarray:
         """Create a random matrix with the given shape."""
         return np.random.randint(low=1, high=100, size=shape)
-    
+
     @staticmethod
-    def create_random_sparse_matrix(shape: Tuple[int, int], density: float = 0.1) -> 'SparseNDArray':
+    def create_random_sparse_matrix(
+        shape: Tuple[int, int], density: float = 0.1
+    ) -> "SparseNDArray":
         """
         Create a random sparse matrix with the given shape and density.
         Density is the fraction of non-zero elements in the matrix.
@@ -210,9 +170,9 @@ class SparseNDArray:
         dense_matrix = np.random.rand(*shape)
         mask = np.random.rand(*shape) < density
         sparse_matrix = np.multiply(dense_matrix, mask)
-        
+
         return sparse_matrix
-    
+
     ### Properies and string representations
     @property
     def shape(self):
@@ -246,28 +206,9 @@ class SparseNDArray:
         Convert this SparseNDArray to a C++ SparseArray.
         """
         # Create the C++ SparseArray backend
-        sparse_array = self.device.SparseArray(
-            self.nnz, self._shape[0], self._shape[1]
-        )
-        sparse_array.from_components(self._data, self._indices, self._indptr)
+        sparse_array = self.device.SparseArray(self.nnz, self._shape[0], self._shape[1])
+        sparse_array.from_components(self._csr_array.data, self._csr_array.indices, self._csr_array.indptr)
         return sparse_array
-
-    # @property
-    # def to_cpp_sparse_array(self):
-    #     """
-    #     Convert this SparseNDArray to a C++ SparseArray.
-    #     """
-    #     # Retrieve raw pointers and metadata
-    #     data_ptr = np.array(self._data).ctypes.data
-    #     indices_ptr = np.array(self._indices).ctypes.data
-    #     indptr_ptr = np.array(self._indptr).ctypes.data
-
-    #     # breakpoint()
-
-    #     # Call into the backend to create a C++ SparseArray
-    #     return self.device.SparseArray(
-    #         self.nnz, self._shape[0], self._shape[1], data_ptr, indices_ptr, indptr_ptr
-    #     )
 
     def __repr__(self):
         return f"SparseNDArray(shape={self._shape}, device={self._device}, dtype={self.dtype})"
@@ -284,50 +225,113 @@ class SparseNDArray:
 
     def broadcast_to(self, shape):
         """Broadcast the sparse ndarray to the given shape."""
-        raise NotImplementedError()
+        raise NotImplementedError("Broadcasting is not implemented yet.")
 
-    def ewise_or_scalar(self, other, ewise_func, scalar_func):
-        """Run either an elementwise or scalar version of a function,
-        depending on whether "other" is an SparseNDArray or scalar
-        """
-        # out = SparseNDArray.make(
-        #     self._shape, self._data, self._indices, self._indptr, self._device
-        # )
+    # TODO: What should be the type of "out" here? NDArray or SparseNDArray?
+    # def ewise_or_scalar(self, other, ewise_func, scalar_func):
+    #     """Run either an elementwise or scalar version of a function,
+    #     depending on whether "other" is an SparseNDArray or scalar
+    #     """
+    #     # out = SparseNDArray.make(
+    #     #     self._shape, self._data, self._indices, self._indptr, self._device
+    #     # )
 
-        out = full(shape=self._shape, fill_value=0, device=self._device)
-        # breakpoint()
+    #     # breakpoint()
 
-        if isinstance(other, SparseNDArray):
-            assert self.shape == other.shape, "operation needs two equal-sized arrays"
-            # Convert self and other into the expected C++ SparseArray type
-            sparse_self = self.to_cpp_sparse_array
-            sparse_other = other.to_cpp_sparse_array
-            # out = out.to_cpp_sparse_array
+    #     if isinstance(other, SparseNDArray):
+    #         assert self.shape == other.shape, "operation needs two equal-sized arrays"
+    #         out = SparseNDArray(self._shape, self._device)
+    #         # out._shape = self._shape
+    #         # out._device = self._device
 
-            # Call the C++ elementwise function
-            ewise_func(sparse_self, sparse_other, out._handle)
+    #         # Convert self and other into the expected C++ SparseArray type
+    #         sparse_self = self.to_cpp_sparse_array
+    #         sparse_other = other.to_cpp_sparse_array
+    #         # out = out.to_cpp_sparse_array
 
-        elif isinstance(other, NDArray):
-            assert self.shape == other.shape, "operation needs two equal-sized arrays"
-            # Convert self and other into the expected C++ SparseArray type
-            sparse_self = self.to_cpp_sparse_array
-            
-            ewise_func(sparse_self, other, out._handle)
+    #         # Call the C++ elementwise function
+    #         ewise_func(sparse_self, sparse_other, out._csr_array)
 
-        # Case 2: Scalar operation
-        else:
-            # Convert self into C++ SparseArray and call scalar_func
-            sparse_self = self.to_cpp_sparse_array
-            # out = out.to_cpp_sparse_array
+    #     elif isinstance(other, NDArray):
+    #         out = full(shape=self._shape, fill_value=0, device=self._device)
+    #         assert self.shape == other.shape, "operation needs two equal-sized arrays"
+    #         # Convert self and other into the expected C++ SparseArray type
+    #         sparse_self = self.to_cpp_sparse_array
 
-            scalar_func(sparse_self, float(other), out._handle)
+    #         ewise_func(sparse_self, other, out._handle)
 
-        return out
+    #     # Case 2: Scalar operation
+    #     else:
+    #         out = SparseNDArray(self._shape, self._device)
+
+    #         # Convert self into C++ SparseArray and call scalar_func
+    #         sparse_self = self.to_cpp_sparse_array
+    #         # out = out.to_cpp_sparse_array
+
+    #         scalar_func(sparse_self, float(other), out._csr_array)
+
+    #     return out
 
     def __add__(self, other):
-        return self.ewise_or_scalar(
-            other, self.device.sparse_ewise_add_sparse, self.device.sparse_scalar_add
-        )
+        # out = None
+        if isinstance(other, SparseNDArray) and isinstance(self, SparseNDArray):
+            # return self.ewise_or_scalar(
+            #     other,
+            #     self.device.sparse_ewise_add_SSS,
+            #     self.device.sparse_scalar_add,
+            # )
+            assert self.shape == other.shape, "operation needs two equal-sized arrays"
+            out = SparseNDArray(self._shape, self._device)
+
+            # Convert self and other into the expected C++ SparseArray type
+            # sparse_self = self.to_cpp_sparse_array
+            # sparse_other = other.to_cpp_sparse_array
+
+            # Call the C++ elementwise function
+            # self.device.sparse_ewise_add_SSS(sparse_self, sparse_other, out._csr_array)
+            self.device.sparse_ewise_add_SSS(self._csr_array, other._csr_array, out._csr_array)
+
+        elif isinstance(other, NDArray) and isinstance(self, SparseNDArray):
+            # return self.ewise_or_scalar(
+            #     other, self.device.sparse_ewise_add_SDD, self.device.sparse_scalar_add
+            # )
+            assert self.shape == other.shape, "operation needs two equal-sized arrays"
+            out = full(shape=self._shape, fill_value=0, device=self._device)
+
+            # Convert self and other into the expected C++ SparseArray type
+            # sparse_self = self.to_cpp_sparse_array
+
+            # self.device.sparse_ewise_add_SDD(sparse_self, other, out._handle)
+            self.device.sparse_ewise_add_SDD(self._csr_array, other, out._csr_array)
+
+        elif isinstance(other, SparseNDArray) and isinstance(self, NDArray):
+            # return other.ewise_or_scalar(
+            #     self, self.device.sparse_ewise_add_DSD, self.device.sparse_scalar_add
+            # )
+            assert self.shape == other.shape, "operation needs two equal-sized arrays"
+            out = full(shape=self._shape, fill_value=0, device=self._device)
+
+            # Convert self and other into the expected C++ SparseArray type
+            # sparse_other = other.to_cpp_sparse_array
+
+            # self.device.sparse_ewise_add_DSD(self, sparse_other, out._handle)
+            self.device.sparse_ewise_add_DSD(self, other._csr_array, out._csr_array)
+
+        elif isinstance(other, float) or isinstance(other, int):
+            # return self.ewise_or_scalar(
+            #     other, self.device.sparse_ewise_add_SDD, self.device.sparse_scalar_add
+            # )
+            # out = SparseNDArray.make(self._shape, self._csr_array.data, self._csr_array.indices, self._csr_array.indptr, self._device)
+            out = full(shape=self._shape, fill_value=0, device=self._device)
+            # Convert self into C++ SparseArray and call scalar_func
+            # sparse_self = self.to_cpp_sparse_array
+            # self.device.sparse_scalar_add(sparse_self, float(other), out._handle)
+            self.device.sparse_scalar_add(self._csr_array, float(other), out._handle)
+
+        else:
+            raise ValueError("Unsupported type" + str(type(other)))
+
+        return out
 
     __radd__ = __add__
 
@@ -338,9 +342,68 @@ class SparseNDArray:
         return other + (-self)
 
     def __mul__(self, other):
-        return self.ewise_or_scalar(
-            other, self.device.sparse_ewise_mul_sparse, self.device.sparse_scalar_mul
-        )
+        out = None
+        if isinstance(other, SparseNDArray) and isinstance(self, SparseNDArray):
+            # return self.ewise_or_scalar(
+            #     other,
+            #     self.device.sparse_ewise_mul_SSS,
+            #     self.device.sparse_scalar_mul,
+            # )
+            assert self.shape == other.shape, "operation needs two equal-sized arrays"
+            out = SparseNDArray(self._shape, self._device)
+            # out._shape = self._shape
+            # out._device = self._device
+
+            # Convert self and other into the expected C++ SparseArray type
+            # sparse_self = self.to_cpp_sparse_array
+            # sparse_other = other.to_cpp_sparse_array
+            # out = out.to_cpp_sparse_array
+
+            # Call the C++ elementwise function
+            # self.device.sparse_ewise_mul_SSS(sparse_self, sparse_other, out._csr_array)
+            self.device.sparse_ewise_mul_SSS(self._csr_array, other._csr_array, out._csr_array)
+
+        elif isinstance(other, NDArray) and isinstance(self, SparseNDArray):
+            # return self.ewise_or_scalar(
+            #     other, self.device.sparse_ewise_mul_SDD, self.device.sparse_scalar_mul
+            # )
+            assert self.shape == other.shape, "operation needs two equal-sized arrays"
+            out = full(shape=self._shape, fill_value=0, device=self._device)
+
+            # Convert self and other into the expected C++ SparseArray type
+            # sparse_self = self.to_cpp_sparse_array
+
+            # self.device.sparse_ewise_mul_SDD(sparse_self, other, out._handle)
+            self.device.sparse_ewise_mul_SDD(self._csr_array, other._handle, out._csr_array)
+
+        elif isinstance(other, SparseNDArray) and isinstance(self, NDArray):
+            # return other.ewise_or_scalar(
+            #     self, self.device.sparse_ewise_mul_DSD, self.device.sparse_scalar_mul
+            # )
+            assert self.shape == other.shape, "operation needs two equal-sized arrays"
+            out = full(shape=self._shape, fill_value=0, device=self._device)
+
+            # Convert self and other into the expected C++ SparseArray type
+            # sparse_other = other.to_cpp_sparse_array
+
+            # self.device.sparse_ewise_mul_DSD(self, sparse_other, out._handle)
+            self.device.sparse_ewise_mul_DSD(self._handle, other._csr_array, out._csr_array)
+
+        elif isinstance(other, float) or isinstance(other, int):
+            # return self.ewise_or_scalar(
+            #     other, self.device.sparse_ewise_mul_SDD, self.device.sparse_scalar_mul
+            # )
+            out = SparseNDArray.make(self._shape, self._csr_array.data, self._csr_array.indices, self._csr_array.indptr, self._device)
+
+            # Convert self into C++ SparseArray and call scalar_func
+            # sparse_self = self.to_cpp_sparse_array
+            # self.device.sparse_scalar_mul(sparse_self, float(other), out._csr_array)
+            self.device.sparse_scalar_mul(self._csr_array, float(other), out._csr_array)
+
+        else:
+            raise ValueError("Unsupported type" + str(type(other)))
+
+        return out
 
     __rmul__ = __mul__
 
@@ -382,34 +445,61 @@ class SparseNDArray:
 
         output_shape = (self.shape[0], other.shape[1])
 
-        out = full(shape=output_shape, fill_value=0, device=self.device)
         # breakpoint()
         if isinstance(other, SparseNDArray):
             # Handle sparse @ sparse case
             if other.shape[1] == 1:
                 # Vector case
-                sparse_self = self.to_cpp_sparse_array
-                sparse_other = other.to_cpp_sparse_array
-                self.device.sparse_mat_sparse_vec_mul(sparse_self, sparse_other, out._handle)
+                out = SparseNDArray(output_shape, device=self.device)
+                
+                # sparse_self = self.to_cpp_sparse_array
+                # sparse_other = other.to_cpp_sparse_array
+                # self.device.sparse_mat_sparse_vec_mul(
+                #     sparse_self, sparse_other, out._handle
+                # )
+                self.device.sparse_mat_sparse_vec_mul(
+                    self._csr_array, other._csr_array, out._csr_array
+                )
             else:
                 # Matrix case
-                sparse_self = self.to_cpp_sparse_array
-                sparse_other = other.to_cpp_sparse_array
-                self.device.sparse_mat_sparse_mat_mul(sparse_self, sparse_other, out._handle)
+                out = SparseNDArray(output_shape, device=self.device)
+
+                # sparse_self = self.to_cpp_sparse_array
+                # sparse_other = other.to_cpp_sparse_array
+                # self.device.sparse_mat_sparse_mat_mul_sparse(
+                #     sparse_self, sparse_other, out._csr_array
+                # )
+                # breakpoint()
+                self.device.sparse_mat_sparse_mat_mul_sparse(
+                    self._csr_array, other._csr_array, out._csr_array
+                )
         else:
             # Handle sparse @ dense case
             if other.shape[1] == 1:
                 # Vector case
-                sparse_self = self.to_cpp_sparse_array
-                sparse_other = other.to_cpp_sparse_array
-                self.device.sparse_mat_dense_vec_mul(sparse_self, sparse_other, out._handle)
+                out = full(shape=output_shape, fill_value=0, device=self.device)
+                # sparse_self = self.to_cpp_sparse_array
+                # sparse_other = other.to_cpp_sparse_array
+                # self.device.sparse_mat_dense_vec_mul(
+                #     sparse_self, sparse_other, out._handle
+                # )
+                self.device.sparse_mat_dense_vec_mul(
+                    self._csr_array, other._handle, out._handle
+                )
             else:
                 # Matrix case
-                sparse_self = self.to_cpp_sparse_array
-                sparse_other = other.to_cpp_sparse_array
-                self.device.sparse_mat_dense_mat_mul(sparse_self, sparse_other, out._handle)
-        
+                out = full(shape=output_shape, fill_value=0, device=self.device)
+                # sparse_self = self.to_cpp_sparse_array
+                # sparse_other = other.to_cpp_sparse_array
+                # self.device.sparse_mat_dense_mat_mul(
+                #     sparse_self, sparse_other, out._handle
+                # )
+                self.device.sparse_mat_dense_mat_mul(
+                    self._csr_array, other._handle, out._handle
+                )
+
         return out
+
 
 def sparse_add(a, b):
     return a + b
