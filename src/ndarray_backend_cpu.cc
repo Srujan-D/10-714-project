@@ -636,13 +636,6 @@ namespace needle
 
         struct SparseArray
         {
-            // scalar_t *data;  // Non-zero values
-            // int *indices;    // Column indices
-            // int *indptr;     // Row pointers
-            // size_t nnz;      // Number of non-zero elements
-            // size_t num_rows; // Number of rows
-            // size_t num_cols; // Number of columns
-
             scalar_t *data = nullptr;
             int *indices = nullptr;
             int *indptr = nullptr;
@@ -665,15 +658,6 @@ namespace needle
                 std::fill(indptr, indptr + num_rows + 1, 0);
             }
 
-            // ~SparseArray()
-            // {
-            //     if (data)
-            //         free(data);
-            //     if (indices)
-            //         free(indices);
-            //     if (indptr)
-            //         free(indptr);
-            // }
             ~SparseArray()
             {
                 if (data)
@@ -779,6 +763,9 @@ namespace needle
                 }
 
                 this->nnz = data_list.size();
+                // TODO: Check if this is correct and if it is needed (next two lines)
+                this->num_rows = indptr_list.size() - 1;
+                this->num_cols = *max_element(indices_list.begin(), indices_list.end()) + 1;
 
                 cout << "completed copying" << endl;
             }
@@ -809,7 +796,7 @@ namespace needle
         //     indptr[rows] = nnz_count;
         // }
 
-        // First overload - Sparse + Dense
+        // First overload - Sparse + Dense --> Output is dense
         void SparseEwiseAdd(const SparseArray &a, const AlignedArray &b, AlignedArray *out)
         {
             assert(out->size == b.size && "Output array size must match dense matrix size");
@@ -825,7 +812,7 @@ namespace needle
             }
         }
 
-        // Second overload - Dense + Sparse
+        // Second overload - Dense + Sparse --> Output is dense
         void SparseEwiseAdd(const AlignedArray &a, const SparseArray &b, AlignedArray *out)
         {
             assert(out->size == a.size && "Output array size must match dense matrix size");
@@ -965,7 +952,7 @@ namespace needle
             }
         }
 
-        // First overload - Sparse * Dense
+        // First overload - Sparse * Dense --> Output is dense
         void SparseEwiseMul(const SparseArray &a, const AlignedArray &b, AlignedArray *out)
         {
             assert(out->size == b.size && "Output array size must match dense matrix size");
@@ -985,7 +972,7 @@ namespace needle
             }
         }
 
-        // Second overload - Dense * Sparse
+        // Second overload - Dense * Sparse --> Output is dense
         void SparseEwiseMul(const AlignedArray &a, const SparseArray &b, AlignedArray *out)
         {
             assert(out->size == a.size && "Output array size must match dense matrix size");

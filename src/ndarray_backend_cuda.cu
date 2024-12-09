@@ -751,6 +751,104 @@ namespace needle
             ReduceSumKernel<<<dim.grid, dim.block>>>(a.ptr, out->ptr, out->size, reduce_size);
         }
 
+        /*
+        Add spport for sparse matrices.
+        Currently we implement addition and multiplcation kernels only.
+        For both, if we have two matrices A and B, then at least one of them should be sparse.
+        Depending on whether B is sparse or not, we have two different kernels.
+        */
+
+        /*
+        struct CudaArray
+         {
+             CudaArray(const size_t size)
+             {
+                 cudaError_t err = cudaMalloc(&ptr, size * ELEM_SIZE);
+                 if (err != cudaSuccess)
+                     throw std::runtime_error(cudaGetErrorString(err));
+                 this->size = size;
+             }
+             ~CudaArray() { cudaFree(ptr); }
+             size_t ptr_as_int() { return (size_t)ptr; }
+
+             scalar_t *ptr;
+             size_t size;
+         };
+        */
+
+        struct CudaSparseArray
+        {
+            scalar_t *data = nullptr;
+            int *indices = nullptr;
+            int *indptr = nullptr;
+            size_t nnz = 0;
+            size_t num_rows = 0;
+            size_t num_cols = 0;
+
+            CudaSparseArray(const size_t nnz, const size_t num_rows, const size_t num_cols)
+            {
+                cudaError_t err = cudaMalloc(&data, nnz * ELEM_SIZE);
+                if (err != cudaSuccess)
+                    throw std::runtime_error(cudaGetErrorString(err));
+
+                err = cudaMalloc(&indices, nnz * sizeof(int));
+                if (err != cudaSuccess)
+                    throw std::runtime_error(cudaGetErrorString(err));
+
+                err = cudaMalloc(&indptr, (num_rows + 1) * sizeof(int));
+                if (err != cudaSuccess)
+                    throw std::runtime_error(cudaGetErrorString(err));
+
+                this->nnz = nnz;
+                this->num_rows = num_rows;
+                this->num_cols = num_cols;
+            }
+
+            ~CudaSparseArray()
+            {
+                if (data)
+                    cudaFree(data);
+                if (indices)
+                    cudaFree(indices);
+                if (indptr)
+                    cudaFree(indptr);
+            }
+
+            CudaSparseArray &from_components(py::list data_list, py::list indices_list, py::list indptr_list)
+            {
+                std::vector<scalar_t> data_vec = py::cast<std::vector<scalar_t>>(data_list);
+                std::vector<int> indices_vec = py::cast<std::vector<int>>(indices_list);
+                std::vector<int> indptr_vec = py::cast<std::vector<int>>(indptr_list);
+
+                cudaError_t err = cudaMemcpy(data, data_vec.data(), nnz * ELEM_SIZE, cudaMemcpyHostToDevice);
+                if (err != cudaSuccess) throw std::runtime_error(cudaGetErrorString(err));
+
+                err = cudaMemcpy(indices, indices_vec.data(), nnz * sizeof(int), cudaMemcpyHostToDevice);
+                if (err != cudaSuccess) throw std::runtime_error(cudaGetErrorString(err));
+
+                err = cudaMemcpy(indptr, indptr_vec.data(), (num_rows + 1) * sizeof(int), cudaMemcpyHostToDevice);
+                if (err != cudaSuccess) throw std::runtime_error(cudaGetErrorString(err));
+
+                return *this;
+            }
+
+            void from_cpp_components(const std::vector<scalar_t> &data_vec, const std::vector<int> &indices_vec, const std::vector<int> &indptr_vec)
+            {
+                cudaError_t err = cudaMemcpy(this->data, data_vec.data(), nnz * ELEM_SIZE, cudaMemcpyHostToDevice);
+                if (err != cudaSuccess) throw std::runtime_error(cudaGetErrorString(err));
+
+                err = cudaMemcpy(this->indices, indices_vec.data(), nnz * sizeof(int), cudaMemcpyHostToDevice);
+                if (err != cudaSuccess) throw std::runtime_error(cudaGetErrorString(err));
+
+                err = cudaMemcpy(this->indptr, indptr_vec.data(), (num_rows + 1) * sizeof(int), cudaMemcpyHostToDevice);
+                if (err != cudaSuccess) throw std::runtime_error(cudaGetErrorString(err));
+                
+                this->nnz = data_vec.size();
+                this->num_rows = indptr_vec.size() - 1;
+                this->num_cols = *std::max_element(indices_vec.begin(), indices_vec.end()) + 1;
+            }  
+        };
+
     } // namespace cuda
 } // namespace needle
 
