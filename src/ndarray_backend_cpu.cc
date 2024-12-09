@@ -1175,48 +1175,7 @@ namespace needle
             out->from_cpp_components(data, indices, indptr);
         }
 
-        // void SparseMatDenseMatMul(const SparseArray &a, const AlignedArray &b, AlignedArray *out)
-        // {
-        //     /**
-        //      * Matrix-matrix multiplication of sparse matrix `a` and dense matrix `b`.
-        //      * Result is stored in dense matrix `out`.
-        //      *
-        //      * Optimized implementation using column-wise vector multiplication.
-        //      *
-        //      * Inputs:
-        //      *  - a: Sparse matrix in CSR format.
-        //      *  - b: Dense matrix.
-        //      *  - out: Output dense matrix.
-        //      */
-
-        //     // Ensure dimensions match
-        //     assert(out->size == b.size && "Output array size must match dense matrix size");
-        //     // assert(out->size == a.num_rows * b.num_cols && "Dimensions of sparse and dense matrices must match");
-
-        //     // Create temporary arrays for column-wise operations
-        //     AlignedArray col_vec(a.num_cols);
-        //     AlignedArray result_vec(a.num_rows);
-
-        //     // Process each column of b separately
-        //     for (size_t col = 0; col < b.size / a.num_cols; col++)
-        //     {
-        //         // Extract column from b
-        //         for (size_t i = 0; i < a.num_cols; i++)
-        //         {
-        //             col_vec.ptr[i] = b.ptr[i * (b.size / a.num_cols) + col];
-        //         }
-
-        //         // Multiply sparse matrix with this column
-        //         SparseMatDenseVecMul(a, col_vec, &result_vec);
-
-        //         // Store result in appropriate column of out
-        //         for (size_t i = 0; i < a.num_rows; i++)
-        //         {
-        //             out->ptr[i * (b.size / a.num_cols) + col] = result_vec.ptr[i];
-        //         }
-        //     }
-        // }
-        void SparseMatDenseMatMul(const SparseArray &a, const AlignedArray &b, AlignedArray *out)
+        void SparseMatDenseMatMul(const SparseArray &a, const AlignedArray &b, AlignedArray *out, size_t b_cols)
         {
             /**
              * Matrix-matrix multiplication of sparse matrix `a` and dense matrix `b`.
@@ -1226,36 +1185,27 @@ namespace needle
              *  - a: Sparse matrix in CSR format.
              *  - b: Dense matrix (row-major layout).
              *  - out: Output dense matrix.
+             *  - b_cols: Number of columns in matrix b.
              */
 
             // Ensure dimensions match
-            size_t m = a.num_rows; // Number of rows in sparse matrix
-            size_t n = a.num_cols; // Number of columns in sparse matrix
-            size_t p = b.size / n; // Number of columns in dense matrix b
+            assert(out->size == a.num_rows * b_cols && "Output array size must match matrix multiplication dimensions");
+            assert(a.num_cols * b_cols == b.size && "Inner dimensions must match for matrix multiplication");
 
-            assert(out->size == m * p && "Output matrix dimensions must match sparse-dense multiplication result");
-            assert(b.size == n * p && "Dimensions of sparse and dense matrices must match");
+            // Initialize output matrix to zero
+            std::fill(out->ptr, out->ptr + out->size, 0);
 
-            // Temporary storage for sparse matrix-vector multiplication results
-            AlignedArray result_vec(m);
+            // For each row in sparse matrix a
+            for (size_t i = 0; i < a.num_rows; i++) {
+                // For each non-zero element in row i
+                for (int k = a.indptr[i]; k < a.indptr[i + 1]; k++) {
+                    scalar_t val_a = a.data[k];
+                    int col_a = a.indices[k];
 
-            // Process each column of dense matrix b
-            for (size_t col = 0; col < p; col++)
-            {
-                // Create a temporary AlignedArray for the current column
-                AlignedArray col_vec(n);
-                for (size_t i = 0; i < n; i++)
-                {
-                    col_vec.ptr[i] = b.ptr[i * p + col];
-                }
-
-                // Perform sparse matrix-vector multiplication
-                SparseMatDenseVecMul(a, col_vec, &result_vec);
-
-                // Write results to the corresponding column in the output matrix
-                for (size_t i = 0; i < m; i++)
-                {
-                    out->ptr[i * p + col] = result_vec.ptr[i];
+                    // Multiply this element with the corresponding row in dense matrix b
+                    for (size_t j = 0; j < b_cols; j++) {
+                        out->ptr[i * b_cols + j] += val_a * b.ptr[col_a * b_cols + j];
+                    }
                 }
             }
         }

@@ -495,7 +495,7 @@ class SparseNDArray:
                 #     sparse_self, sparse_other, out._handle
                 # )
                 self.device.sparse_mat_dense_mat_mul(
-                    self._csr_array, other._handle, out._handle
+                    self._csr_array, other._handle, out._handle, output_shape[1]
                 )
 
         return out
