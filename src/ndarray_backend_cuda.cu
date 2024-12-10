@@ -814,41 +814,160 @@ namespace needle
                     cudaFree(indptr);
             }
 
-            CudaSparseArray &from_components(py::list data_list, py::list indices_list, py::list indptr_list)
-            {
-                std::vector<scalar_t> data_vec = py::cast<std::vector<scalar_t>>(data_list);
-                std::vector<int> indices_vec = py::cast<std::vector<int>>(indices_list);
-                std::vector<int> indptr_vec = py::cast<std::vector<int>>(indptr_list);
-
-                cudaError_t err = cudaMemcpy(data, data_vec.data(), nnz * ELEM_SIZE, cudaMemcpyHostToDevice);
-                if (err != cudaSuccess) throw std::runtime_error(cudaGetErrorString(err));
-
-                err = cudaMemcpy(indices, indices_vec.data(), nnz * sizeof(int), cudaMemcpyHostToDevice);
-                if (err != cudaSuccess) throw std::runtime_error(cudaGetErrorString(err));
-
-                err = cudaMemcpy(indptr, indptr_vec.data(), (num_rows + 1) * sizeof(int), cudaMemcpyHostToDevice);
-                if (err != cudaSuccess) throw std::runtime_error(cudaGetErrorString(err));
-
-                return *this;
-            }
-
             void from_cpp_components(const std::vector<scalar_t> &data_vec, const std::vector<int> &indices_vec, const std::vector<int> &indptr_vec)
             {
                 cudaError_t err = cudaMemcpy(this->data, data_vec.data(), nnz * ELEM_SIZE, cudaMemcpyHostToDevice);
-                if (err != cudaSuccess) throw std::runtime_error(cudaGetErrorString(err));
+                if (err != cudaSuccess)
+                    throw std::runtime_error(cudaGetErrorString(err));
 
                 err = cudaMemcpy(this->indices, indices_vec.data(), nnz * sizeof(int), cudaMemcpyHostToDevice);
-                if (err != cudaSuccess) throw std::runtime_error(cudaGetErrorString(err));
+                if (err != cudaSuccess)
+                    throw std::runtime_error(cudaGetErrorString(err));
 
                 err = cudaMemcpy(this->indptr, indptr_vec.data(), (num_rows + 1) * sizeof(int), cudaMemcpyHostToDevice);
-                if (err != cudaSuccess) throw std::runtime_error(cudaGetErrorString(err));
-                
+                if (err != cudaSuccess)
+                    throw std::runtime_error(cudaGetErrorString(err));
+
                 this->nnz = data_vec.size();
                 this->num_rows = indptr_vec.size() - 1;
                 this->num_cols = *std::max_element(indices_vec.begin(), indices_vec.end()) + 1;
-            }  
+            }
         };
 
+        __global__ void SparseDenseAddKernel(const scalar_t *A_data, const int *A_indices, const int *A_indptr,
+                                             const scalar_t *B, scalar_t *out, size_t num_rows, size_t num_cols)
+        {
+            size_t row = blockIdx.x * blockDim.x + threadIdx.x;
+            if (row < num_rows)
+            {
+                for (int i = A_indptr[row]; i < A_indptr[row + 1]; i++)
+                {
+                    out[row * num_cols + A_indices[i]] += A_data[i];
+                }
+            }
+        }
+
+        void SparseDenseAdd(const CudaSparseArray &A, const CudaArray &B, CudaArray *out)
+        {
+            CudaDims dim = CudaOneDim(A.num_rows);
+            SparseDenseAddKernel<<<dim.grid, dim.block>>>(A.data, A.indices, A.indptr, B.ptr, out->ptr, A.num_rows, A.num_cols);
+        }
+
+        __global__ void DenseSparseAddKernel(const scalar_t *A, const scalar_t *B_data, const int *B_indices,
+                                             const int *B_indptr, scalar_t *out, size_t num_rows, size_t num_cols)
+        {
+            size_t row = blockIdx.x * blockDim.x + threadIdx.x;
+            if (row < num_rows)
+            {
+                for (int i = B_indptr[row]; i < B_indptr[row + 1]; i++)
+                {
+                    out[row * num_cols + B_indices[i]] += B_data[i];
+                }
+            }
+        }
+
+        void DenseSparseAdd(const CudaArray &A, const CudaSparseArray &B, CudaArray *out)
+        {
+            CudaDims dim = CudaOneDim(B.num_rows);
+            DenseSparseAddKernel<<<dim.grid, dim.block>>>(A.ptr, B.data, B.indices, B.indptr, out->ptr, B.num_rows, B.num_cols);
+        }
+
+        __global__ void SparseDenseMulKernel(const scalar_t *A_data, const int *A_indices, const int *A_indptr,
+                                             const scalar_t *B, scalar_t *out, size_t num_rows, size_t num_cols)
+        {
+            size_t row = blockIdx.x * blockDim.x + threadIdx.x;
+            if (row < num_rows)
+            {
+                for (int i = A_indptr[row]; i < A_indptr[row + 1]; i++)
+                {
+                    out[row * num_cols + A_indices[i]] *= A_data[i];
+                }
+            }
+        }
+
+        void SparseDenseMul(const CudaSparseArray &A, const CudaArray &B, CudaArray *out)
+        {
+            CudaDims dim = CudaOneDim(A.num_rows);
+            SparseDenseMulKernel<<<dim.grid, dim.block>>>(A.data, A.indices, A.indptr, B.ptr, out->ptr, A.num_rows, A.num_cols);
+        }
+
+        __global__ void DenseSparseMulKernel(const scalar_t *A, const scalar_t *B_data, const int *B_indices,
+                                             const int *B_indptr, scalar_t *out, size_t num_rows, size_t num_cols)
+        {
+            size_t row = blockIdx.x * blockDim.x + threadIdx.x;
+            if (row < num_rows)
+            {
+                for (int i = B_indptr[row]; i < B_indptr[row + 1]; i++)
+                {
+                    out[row * num_cols + B_indices[i]] *= B_data[i];
+                }
+            }
+        }
+
+        void DenseSparseMul(const CudaArray &A, const CudaSparseArray &B, CudaArray *out)
+        {
+            CudaDims dim = CudaOneDim(B.num_rows);
+            DenseSparseMulKernel<<<dim.grid, dim.block>>>(A.ptr, B.data, B.indices, B.indptr, out->ptr, B.num_rows, B.num_cols);
+        }
+
+        __global__ void sparseMatDenseMatMulKernel(
+            const float *data,     // Non-zero values of the sparse matrix
+            const int *indices,    // Column indices of the non-zero values
+            const int *indptr,     // Row pointers
+            const float *denseMat, // Dense matrix (row-major)
+            float *outMat,         // Output dense matrix (row-major)
+            size_t numRows,        // Number of rows in the sparse matrix
+            size_t numColsDense    // Number of columns in the dense matrix
+        )
+        {
+            // Each thread processes one row of the sparse matrix
+            int row = blockIdx.x * blockDim.x + threadIdx.x;
+            if (row >= numRows)
+                return;
+
+            // Start and end of the non-zero elements for this row
+            int rowStart = indptr[row];
+            int rowEnd = indptr[row + 1];
+
+            // Initialize the output row to zero
+            for (size_t col = 0; col < numColsDense; col++)
+            {
+                outMat[row * numColsDense + col] = 0.0f;
+            }
+
+            // Compute the row of the output matrix
+            for (int idx = rowStart; idx < rowEnd; idx++)
+            {
+                int colA = indices[idx]; // Column index in the sparse matrix
+                float valA = data[idx];  // Value in the sparse matrix
+
+                for (size_t colB = 0; colB < numColsDense; colB++)
+                {
+                    outMat[row * numColsDense + colB] += valA * denseMat[colA * numColsDense + colB];
+                }
+            }
+        }
+
+        void sparseMatDenseMatMul(
+            const CudaSparseArray &sparseMat,
+            const CudaArray &denseMat,
+            CudaArray *outMat,
+            size_t numColsDense
+        )
+        {
+            size_t numRows = sparseMat.num_rows;
+
+            // Launch parameters
+            CudaDims dim = CudaOneDim(sparseMat.num_rows);
+            sparseMatDenseMatMulKernel<<<dim.grid, dim.block>>>(
+                sparseMat.data, sparseMat.indices, sparseMat.indptr,
+                denseMat.ptr, outMat->ptr, numRows, numColsDense);
+
+            // Check for errors
+            cudaError_t err = cudaGetLastError();
+            if (err != cudaSuccess)
+                throw std::runtime_error(cudaGetErrorString(err));
+        }
     } // namespace cuda
 } // namespace needle
 
@@ -919,4 +1038,59 @@ PYBIND11_MODULE(ndarray_backend_cuda, m)
 
     m.def("reduce_max", ReduceMax);
     m.def("reduce_sum", ReduceSum);
+
+    // m.def("from_numpy", [](py::array_t<scalar_t> a, CudaArray *out)
+    //       {
+    // cudaError_t err =
+    //     cudaMemcpy(out->ptr, a.request().ptr, out->size * ELEM_SIZE, cudaMemcpyHostToDevice);
+    // if (err != cudaSuccess) throw std::runtime_error(cudaGetErrorString(err)); });
+
+    py::class_<CudaSparseArray>(m, "SparseArray")
+        .def(py::init<size_t, size_t, size_t>(), py::return_value_policy::take_ownership)
+        .def_property_readonly("data", [](const CudaSparseArray &self)
+                               { return py::array_t<scalar_t>(
+                                     {self.nnz},         // Shape
+                                     {sizeof(scalar_t)}, // Stride
+                                     self.data,          // Pointer to data
+                                     py::cast(self)      // Ensure CudaSparseArray stays alive
+                                 ); })
+        .def_property_readonly("indices", [](const CudaSparseArray &self)
+                               { return py::array_t<int>(
+                                     {self.nnz},    // Shape
+                                     {sizeof(int)}, // Stride
+                                     self.indices,  // Pointer to indices
+                                     py::cast(self) // Ensure CudaSparseArray stays alive
+                                 ); })
+        .def_property_readonly("indptr", [](const CudaSparseArray &self)
+                               { return py::array_t<int>(
+                                     {self.num_rows + 1}, // Shape
+                                     {sizeof(int)},       // Stride
+                                     self.indptr,         // Pointer to indptr
+                                     py::cast(self)       // Ensure CudaSparseArray stays alive
+                                 ); })
+        .def_readonly("nnz", &CudaSparseArray::nnz, "Number of non-zero elements")
+        .def_readonly("num_rows", &CudaSparseArray::num_rows, "Number of rows in the sparse matrix")
+        .def_readonly("num_cols", &CudaSparseArray::num_cols, "Number of columns in the sparse matrix");
+
+    m.def("data_from_numpy", [](py::array_t<scalar_t> a, CudaSparseArray *out)
+          {
+            cudaError_t err = cudaMemcpy(out->data, a.request().ptr, out->nnz * ELEM_SIZE, cudaMemcpyHostToDevice);
+            if (err != cudaSuccess)
+                throw std::runtime_error(cudaGetErrorString(err)); });
+    m.def("indices_from_numpy", [](py::array_t<int> a, CudaSparseArray *out)
+          {
+            cudaError_t err = cudaMemcpy(out->indices, a.request().ptr, out->nnz * sizeof(int), cudaMemcpyHostToDevice);
+            if (err != cudaSuccess)
+                throw std::runtime_error(cudaGetErrorString(err)); });
+    m.def("indptr_from_numpy", [](py::array_t<int> a, CudaSparseArray *out)
+          {
+                cudaError_t err = cudaMemcpy(out->indptr, a.request().ptr, (out->num_rows + 1) * sizeof(int), cudaMemcpyHostToDevice);
+                if (err != cudaSuccess)
+                    throw std::runtime_error(cudaGetErrorString(err)); });
+
+    m.def("sparse_dense_add", SparseDenseAdd);
+    m.def("dense_sparse_add", DenseSparseAdd);
+    m.def("sparse_dense_mul", SparseDenseMul);
+    m.def("dense_sparse_mul", DenseSparseMul);
+    m.def("sparse_mat_dense_mat_mul", sparseMatDenseMatMul);
 }

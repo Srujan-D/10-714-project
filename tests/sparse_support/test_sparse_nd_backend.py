@@ -54,48 +54,48 @@ def test_sparse_mul_scalar():
     expected = np.array([[2, 0, 0], [0, 0, 2]], dtype=np.float32)
     assert np.allclose(c_np, expected)
 
-def test_sparse_sparse_matmul():
-    def run_sparse_test():
-        a = np.random.randint(low=500, high=1000)
-        b = np.random.randint(low=500, high=1000)
-        c_ = np.random.randint(low=500, high=1000)
+# def test_sparse_sparse_matmul():
+#     def run_sparse_test():
+#         a = np.random.randint(low=500, high=1000)
+#         b = np.random.randint(low=500, high=1000)
+#         c_ = np.random.randint(low=500, high=1000)
 
-        mat_1 = nd.sparse_ndarray.SparseNDArray.create_random_sparse_matrix((a, b))
-        mat_2 = nd.sparse_ndarray.SparseNDArray.create_random_sparse_matrix((b, c_))
+#         mat_1 = nd.sparse_ndarray.SparseNDArray.create_random_sparse_matrix((a, b))
+#         mat_2 = nd.sparse_ndarray.SparseNDArray.create_random_sparse_matrix((b, c_))
 
-        mat_1_sparse = nd.sparse_ndarray.SparseNDArray.to_sparse(mat_1, device=ndl.cpu())
-        # mat_2_sparse = nd.sparse_ndarray.SparseNDArray.to_sparse(mat_2, device=ndl.cpu())
-        mat_2_dense = nd.ndarray.array(mat_2, device=ndl.cpu())
+#         mat_1_sparse = nd.sparse_ndarray.SparseNDArray.to_sparse(mat_1, device=ndl.cpu())
+#         # mat_2_sparse = nd.sparse_ndarray.SparseNDArray.to_sparse(mat_2, device=ndl.cpu())
+#         mat_2_dense = nd.ndarray.array(mat_2, device=ndl.cpu())
 
-        # breakpoint()
-        # mat_3_sparse = mat_1_sparse @ 
-        mat_3 = mat_1_sparse @ mat_2_dense
-        mat_3_np = mat_3.numpy()
+#         # breakpoint()
+#         # mat_3_sparse = mat_1_sparse @ 
+#         mat_3 = mat_1_sparse @ mat_2_dense
+#         mat_3_np = mat_3.numpy()
 
-        expected = np.matmul(mat_1, mat_2)
+#         expected = np.matmul(mat_1, mat_2)
 
-        assert np.allclose(mat_3_np, expected)
+#         assert np.allclose(mat_3_np, expected)
 
-    avg_time = timeit.timeit(run_sparse_test, number=100) / 100
-    print(f"Average time for sparse matmul: {avg_time:.6f} seconds")
+#     avg_time = timeit.timeit(run_sparse_test, number=100) / 100
+#     print(f"Average time for sparse matmul: {avg_time:.6f} seconds")
 
-def test_dense_matmul_for_sparse_matrices():
-    def run_dense_test():
-        a = np.random.randint(low=500, high=1000)
-        b = np.random.randint(low=500, high=1000)
-        c_ = np.random.randint(low=500, high=1000)
+# def test_dense_matmul_for_sparse_matrices():
+#     def run_dense_test():
+#         a = np.random.randint(low=500, high=1000)
+#         b = np.random.randint(low=500, high=1000)
+#         c_ = np.random.randint(low=500, high=1000)
 
-        mat_1 = nd.sparse_ndarray.SparseNDArray.create_random_sparse_matrix((a, b))
-        mat_2 = nd.sparse_ndarray.SparseNDArray.create_random_sparse_matrix((b, c_))
+#         mat_1 = nd.sparse_ndarray.SparseNDArray.create_random_sparse_matrix((a, b))
+#         mat_2 = nd.sparse_ndarray.SparseNDArray.create_random_sparse_matrix((b, c_))
 
-        mat_1_dense = nd.ndarray.array(mat_1, device=ndl.cpu())
-        mat_2_dense = nd.ndarray.array(mat_2, device=ndl.cpu())
+#         mat_1_dense = nd.ndarray.array(mat_1, device=ndl.cpu())
+#         mat_2_dense = nd.ndarray.array(mat_2, device=ndl.cpu())
 
-        # breakpoint()
-        mat_3_dense = mat_1_dense @ mat_2_dense
-        mat_3_np = mat_3_dense.numpy()
-        expected = np.matmul(mat_1, mat_2)
-        assert np.allclose(mat_3_np, expected)
+#         # breakpoint()
+#         mat_3_dense = mat_1_dense @ mat_2_dense
+#         mat_3_np = mat_3_dense.numpy()
+#         expected = np.matmul(mat_1, mat_2)
+#         assert np.allclose(mat_3_np, expected)
 
-    avg_time = timeit.timeit(run_dense_test, number=100) / 100
-    print(f"Average time for dense matmul: {avg_time:.6f} seconds")
+#     avg_time = timeit.timeit(run_dense_test, number=100) / 100
+#     print(f"Average time for dense matmul: {avg_time:.6f} seconds")

@@ -96,6 +96,8 @@ class SparseNDArray:
 
         # Create the C++ SparseArray backend
         array._csr_array = device.SparseArray(len(data), shape[0], shape[1])
+        # if device.name == 'cpu':
+        # print("Using ", device.name)
         if isinstance(data, np.ndarray):
             data = data.tolist()
         if isinstance(indices, np.ndarray):
@@ -103,6 +105,11 @@ class SparseNDArray:
         if isinstance(indptr, np.ndarray):
             indptr = indptr.tolist()
         array._csr_array.from_components(data, indices, indptr)
+        # else:
+        #     print("Using ", device.name)
+        #     array.device.data_from_numpy(np.ascontiguousarray(data), array._csr_array.data)
+        #     array.device.indices_from_numpy(np.ascontiguousarray(indices), array._csr_array.indices)
+        #     array.device.indptr_from_numpy(np.ascontiguousarray(indptr), array._csr_array.indptr)
 
         array.nnz = len(data)
 
