@@ -12,6 +12,12 @@ import needle as ndl
 import needle.nn as nn
 from apps.models import *
 import time
+import os
+import numpy as np
+import dgl
+from dgl import DGLGraph
+from dgl.data import citation_graph as citegrh
+from apps.models import GCN
 
 device = ndl.cpu()
 
@@ -224,6 +230,92 @@ def train_cifar10(
         print(f"Epoch: {epoch}, Acc: {avg_acc}, Loss: {avg_loss}")
     ### END YOUR SOLUTION
 
+def cora_data(root='~/.dgl', name='cora', device="cpu"):
+    name = name.lower()
+    print("Loading %s Dataset" % (name))
+    processed_folder = os.path.join(root, name.lower())
+    os.makedirs(processed_folder, exist_ok=True)
+    os.environ["DGL_DOWNLOAD_DIR"] = processed_folder
+
+    data = citegrh.load_cora()
+
+    # Convert data to numpy arrays
+    features = np.array(data.features, dtype=np.float32)
+    graph = dgl.transform.add_self_loop(DGLGraph(data.graph))
+    adj = graph.adjacency_matrix().to_dense().numpy()
+    labels = np.array(data.labels, dtype=np.int64)
+
+    idx_train = np.array(data.train_mask, dtype=bool)
+    idx_val = np.array(data.val_mask, dtype=bool)
+    idx_test = np.array(data.test_mask, dtype=bool)
+
+    feat_len, num_class = features.shape[1], data.num_labels
+    return adj, features, labels, idx_train, idx_val, idx_test, feat_len, num_class
+
+def accuracy(output, labels):
+    output = output.data.numpy()
+    labels = labels.data.numpy()
+
+
+    preds = output.max(1)[1].type_as(labels)
+    correct = preds.eq(labels).double()
+    correct = correct.sum()
+    return correct / len(labels)
+
+
+### CIFAR-10 training ###
+def epoch_general_cora(model, data,  loss_fn=nn.SoftmaxLoss(), opt=None):
+
+    adj, features, labels, idx_train, idx_val, idx_test, feat_len, num_class = data
+
+    adj = ndl.Tensor(adj, device=device)
+    features = ndl.Tensor(features, device=device)
+    labels = ndl.Tensor(labels, device=device)
+
+    idx_train = ndl.Tensor(idx_train, device=device)
+    idx_val = ndl.Tensor(idx_val, device=device)
+    idx_test = ndl.Tensor(idx_test, device=device)
+
+    if opt is None:
+        model.eval()
+        output = model(features, adj)
+        loss_test = loss_fn(output[idx_test], labels[idx_test])
+        acc_test = accuracy(output[idx_test], labels[idx_test])
+        return loss_test, acc_test
+    else:
+        model.train()
+        model.train()
+        opt.reset_grad()
+        output = model(features, adj)
+        loss_train = loss_fn(output[idx_train], labels[idx_train])
+        acc_train = accuracy(output[idx_train], labels[idx_train])
+        loss_train.backward()
+        opt.step()
+        loss_val = loss_fn(output[idx_val], labels[idx_val])
+        acc_val = accuracy(output[idx_val], labels[idx_val])
+        return acc_train, loss_train
+    ### END YOUR SOLUTION
+
+
+def train_cora(
+    n_epochs=1,
+    optimizer=ndl.optim.Adam,
+    lr=0.001,
+    weight_decay=0.001,
+    loss_fn=nn.SoftmaxLoss(),
+):
+    np.random.seed(4)
+    
+    data = cora_data()
+    adj, features, labels, idx_train, idx_val, idx_test, feat_len, num_class = data
+
+    model = GCN(nfeat=feat_len, nhid=16, nclass=num_class, dropout=0.5)
+
+    opt = optimizer(model.parameters(), lr=lr, weight_decay=weight_decay)
+
+    for epoch in range(n_epochs):
+        avg_acc, avg_loss = epoch_general_cora(model,data, loss_fn=loss_fn, opt=opt)
+        print(f"Epoch: {epoch}, Acc: {avg_acc}, Loss: {avg_loss}")
 
 def evaluate_cifar10(model, dataloader, loss_fn=nn.SoftmaxLoss()):
     """
