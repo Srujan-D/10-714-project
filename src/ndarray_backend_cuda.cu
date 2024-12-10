@@ -840,6 +840,11 @@ namespace needle
             size_t row = blockIdx.x * blockDim.x + threadIdx.x;
             if (row < num_rows)
             {
+                // First, copy the dense matrix B to output
+                for (size_t col = 0; col < num_cols; col++) {
+                    out[row * num_cols + col] = B[row * num_cols + col];
+                }
+                // Then add the sparse values
                 for (int i = A_indptr[row]; i < A_indptr[row + 1]; i++)
                 {
                     out[row * num_cols + A_indices[i]] += A_data[i];
@@ -952,8 +957,7 @@ namespace needle
             const CudaSparseArray &sparseMat,
             const CudaArray &denseMat,
             CudaArray *outMat,
-            size_t numColsDense
-        )
+            size_t numColsDense)
         {
             size_t numRows = sparseMat.num_rows;
 
@@ -968,6 +972,65 @@ namespace needle
             if (err != cudaSuccess)
                 throw std::runtime_error(cudaGetErrorString(err));
         }
+    
+        __global__ void warped_sparseMatDenseMatMulKernel(
+            const float *data,     // Non-zero values of the sparse matrix
+            const int *indices,    // Column indices of the non-zero values
+            const int *indptr,     // Row pointers
+            const float *denseMat, // Dense matrix (row-major)
+            float *outMat,         // Output dense matrix (row-major)
+            size_t numRows,        // Number of rows in the sparse matrix
+            size_t numColsDense    // Number of columns in the dense matrix
+        )
+        {
+            // Each thread processes one row of the sparse matrix
+            int row = blockIdx.x * blockDim.x + threadIdx.x;
+            if (row >= numRows)
+                return;
+
+            // Start and end of the non-zero elements for this row
+            int rowStart = indptr[row];
+            int rowEnd = indptr[row + 1];
+
+            // Initialize the output row to zero
+            for (size_t col = 0; col < numColsDense; col++)
+            {
+                outMat[row * numColsDense + col] = 0.0f;
+            }
+
+            // Compute the row of the output matrix
+            for (int idx = rowStart; idx < rowEnd; idx++)
+            {
+                int colA = indices[idx]; // Column index in the sparse matrix
+                float valA = data[idx];  // Value in the sparse matrix
+
+                for (size_t colB = 0; colB < numColsDense; colB++)
+                {
+                    outMat[row * numColsDense + colB] += valA * denseMat[colA * numColsDense + colB];
+                }
+            }
+        }
+
+        void warped_sparseMatDenseMatMul(
+            const CudaSparseArray &sparseMat,
+            const CudaArray &denseMat,
+            CudaArray *outMat,
+            size_t numColsDense)
+        {
+            size_t numRows = sparseMat.num_rows;
+
+            // Launch parameters
+            CudaDims dim = CudaOneDim(sparseMat.num_rows);
+            warped_sparseMatDenseMatMulKernel<<<dim.grid, dim.block>>>(
+                sparseMat.data, sparseMat.indices, sparseMat.indptr,
+                denseMat.ptr, outMat->ptr, numRows, numColsDense);
+
+            // Check for errors
+            cudaError_t err = cudaGetLastError();
+            if (err != cudaSuccess)
+                throw std::runtime_error(cudaGetErrorString(err));
+        }
+    
     } // namespace cuda
 } // namespace needle
 
@@ -1072,25 +1135,29 @@ PYBIND11_MODULE(ndarray_backend_cuda, m)
         .def_readonly("num_rows", &CudaSparseArray::num_rows, "Number of rows in the sparse matrix")
         .def_readonly("num_cols", &CudaSparseArray::num_cols, "Number of columns in the sparse matrix");
 
-    m.def("data_from_numpy", [](py::array_t<scalar_t> a, CudaSparseArray *out)
-          {
-            cudaError_t err = cudaMemcpy(out->data, a.request().ptr, out->nnz * ELEM_SIZE, cudaMemcpyHostToDevice);
-            if (err != cudaSuccess)
-                throw std::runtime_error(cudaGetErrorString(err)); });
-    m.def("indices_from_numpy", [](py::array_t<int> a, CudaSparseArray *out)
-          {
-            cudaError_t err = cudaMemcpy(out->indices, a.request().ptr, out->nnz * sizeof(int), cudaMemcpyHostToDevice);
-            if (err != cudaSuccess)
-                throw std::runtime_error(cudaGetErrorString(err)); });
-    m.def("indptr_from_numpy", [](py::array_t<int> a, CudaSparseArray *out)
-          {
-                cudaError_t err = cudaMemcpy(out->indptr, a.request().ptr, (out->num_rows + 1) * sizeof(int), cudaMemcpyHostToDevice);
-                if (err != cudaSuccess)
-                    throw std::runtime_error(cudaGetErrorString(err)); });
+    m.def("from_numpy_sparse", [](py::array_t<scalar_t> data, py::array_t<int> indices, py::array_t<int> indptr, CudaSparseArray *out) {
+        cudaError_t err;
+        
+        // Copy data array
+        err = cudaMemcpy(out->data, data.request().ptr, out->nnz * ELEM_SIZE, cudaMemcpyHostToDevice);
+        if (err != cudaSuccess)
+            throw std::runtime_error(cudaGetErrorString(err));
+            
+        // Copy indices array
+        err = cudaMemcpy(out->indices, indices.request().ptr, out->nnz * sizeof(int), cudaMemcpyHostToDevice);
+        if (err != cudaSuccess)
+            throw std::runtime_error(cudaGetErrorString(err));
+            
+        // Copy indptr array
+        err = cudaMemcpy(out->indptr, indptr.request().ptr, (out->num_rows + 1) * sizeof(int), cudaMemcpyHostToDevice);
+        if (err != cudaSuccess)
+            throw std::runtime_error(cudaGetErrorString(err));
+    });
 
-    m.def("sparse_dense_add", SparseDenseAdd);
-    m.def("dense_sparse_add", DenseSparseAdd);
-    m.def("sparse_dense_mul", SparseDenseMul);
-    m.def("dense_sparse_mul", DenseSparseMul);
-    m.def("sparse_mat_dense_mat_mul", sparseMatDenseMatMul);
+    m.def("sparse_ewise_add_SDD", SparseDenseAdd);
+    m.def("sparse_ewise_add_DSD", DenseSparseAdd);
+    m.def("sparse_ewise_mul_SDD", SparseDenseMul);
+    m.def("sparse_ewise_mul_DSD", DenseSparseMul);
+    m.def("naive_sparse_mat_dense_mat_mul", sparseMatDenseMatMul);
+    m.def("sparse_mat_dense_mat_mul", warped_sparseMatDenseMatMul);
 }

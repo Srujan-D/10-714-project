@@ -763,10 +763,6 @@ namespace needle
                 }
 
                 this->nnz = data_list.size();
-                // TODO: Check if this is correct and if it is needed (next two lines)
-                this->num_rows = indptr_list.size() - 1;
-                this->num_cols = *max_element(indices_list.begin(), indices_list.end()) + 1;
-
                 cout << "completed copying" << endl;
             }
         };

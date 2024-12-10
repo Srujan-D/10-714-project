@@ -95,21 +95,20 @@ class SparseNDArray:
         array._data = data
 
         # Create the C++ SparseArray backend
+        # breakpoint()
         array._csr_array = device.SparseArray(len(data), shape[0], shape[1])
-        # if device.name == 'cpu':
-        # print("Using ", device.name)
-        if isinstance(data, np.ndarray):
-            data = data.tolist()
-        if isinstance(indices, np.ndarray):
-            indices = indices.tolist()
-        if isinstance(indptr, np.ndarray):
-            indptr = indptr.tolist()
-        array._csr_array.from_components(data, indices, indptr)
-        # else:
-        #     print("Using ", device.name)
-        #     array.device.data_from_numpy(np.ascontiguousarray(data), array._csr_array.data)
-        #     array.device.indices_from_numpy(np.ascontiguousarray(indices), array._csr_array.indices)
-        #     array.device.indptr_from_numpy(np.ascontiguousarray(indptr), array._csr_array.indptr)
+        if device.name == 'cpu':
+            # print("Using ", device.name)
+            if isinstance(data, np.ndarray):
+                data = data.tolist()
+            if isinstance(indices, np.ndarray):
+                indices = indices.tolist()
+            if isinstance(indptr, np.ndarray):
+                indptr = indptr.tolist()
+            array._csr_array.from_components(data, indices, indptr)
+        else:
+            # print("Using ", device.name)
+            array.device.from_numpy_sparse(data, indices, indptr, array._csr_array)
 
         array.nnz = len(data)
 
@@ -308,8 +307,8 @@ class SparseNDArray:
             # Convert self and other into the expected C++ SparseArray type
             # sparse_self = self.to_cpp_sparse_array
 
-            # self.device.sparse_ewise_add_SDD(sparse_self, other, out._handle)
-            self.device.sparse_ewise_add_SDD(self._csr_array, other, out._csr_array)
+            # self.device.sparse_ewise_add_SDD(sparse_self, other._handle, out._handle)
+            self.device.sparse_ewise_add_SDD(self._csr_array, other._handle, out._handle)
 
         elif isinstance(other, SparseNDArray) and isinstance(self, NDArray):
             # return other.ewise_or_scalar(
@@ -322,7 +321,7 @@ class SparseNDArray:
             # sparse_other = other.to_cpp_sparse_array
 
             # self.device.sparse_ewise_add_DSD(self, sparse_other, out._handle)
-            self.device.sparse_ewise_add_DSD(self, other._csr_array, out._csr_array)
+            self.device.sparse_ewise_add_DSD(self, other._csr_array, out._handle)
 
         elif isinstance(other, float) or isinstance(other, int):
             # return self.ewise_or_scalar(
@@ -381,7 +380,7 @@ class SparseNDArray:
             # sparse_self = self.to_cpp_sparse_array
 
             # self.device.sparse_ewise_mul_SDD(sparse_self, other, out._handle)
-            self.device.sparse_ewise_mul_SDD(self._csr_array, other._handle, out._csr_array)
+            self.device.sparse_ewise_mul_SDD(self._csr_array, other._handle, out._handle)
 
         elif isinstance(other, SparseNDArray) and isinstance(self, NDArray):
             # return other.ewise_or_scalar(
@@ -394,7 +393,7 @@ class SparseNDArray:
             # sparse_other = other.to_cpp_sparse_array
 
             # self.device.sparse_ewise_mul_DSD(self, sparse_other, out._handle)
-            self.device.sparse_ewise_mul_DSD(self._handle, other._csr_array, out._csr_array)
+            self.device.sparse_ewise_mul_DSD(self._handle, other._csr_array, out._handle)
 
         elif isinstance(other, float) or isinstance(other, int):
             # return self.ewise_or_scalar(
