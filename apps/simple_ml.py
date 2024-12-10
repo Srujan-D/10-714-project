@@ -19,7 +19,7 @@ from dgl import DGLGraph
 from dgl.data import citation_graph as citegrh
 from models import GCN
 
-device = ndl.cpu()
+device = ndl.cuda()
 
 def cora_data(root='~/.dgl', name='cora', device="cpu"):
     name = name.lower()

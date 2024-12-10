@@ -117,10 +117,11 @@ class Value:
         if self.cached_data is not None:
             return self.cached_data
         # note: data implicitly calls realized cached data
+        # breakpoint()
         self.cached_data = self.op.compute(
             *[x.realize_cached_data() for x in self.inputs]
         )
-        breakpoint()
+        # breakpoint()
         return self.cached_data
 
     def is_leaf(self):
@@ -409,7 +410,7 @@ class SparseTensor(Value):
         self._init(
             None,
             [],
-            cached_data=(data, indices, shape),
+            cached_data=data, # (data, indices, shape),
             requires_grad=requires_grad,
         )
 
@@ -531,6 +532,9 @@ class SparseTensor(Value):
     
     def matmul(self, other):
         return needle.ops.SparseMatMul()(self, other)
+    
+    def transpose(self, axes=None):
+        return needle.ops.SparseTranspose()(self)
         
     # TODO: do we need division?
 

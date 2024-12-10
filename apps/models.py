@@ -152,7 +152,7 @@ class GraphConv(nn.Module):
         self.linear = nn.Linear(in_features, out_features, bias, device=device)
 
     def forward(self, x, adj):
-        breakpoint()
+        # breakpoint()
         return adj @ self.linear(x)
 
 

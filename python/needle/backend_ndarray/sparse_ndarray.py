@@ -232,6 +232,60 @@ class SparseNDArray:
     def broadcast_to(self, shape):
         """Broadcast the sparse ndarray to the given shape."""
         raise NotImplementedError("Broadcasting is not implemented yet.")
+    
+    def transpose(self):
+        """
+        Transpose a sparse matrix in CSR format.
+
+        Args:
+            sparse_matrix (SparseNDArray): The input sparse matrix in CSR format.
+
+        Returns:
+            SparseNDArray: The transposed sparse matrix in CSR format.
+        """
+        # Extract the components of the sparse matrix
+        data = self._csr_array.data  # Non-zero values
+        indices = self._csr_array.indices  # Column indices
+        indptr = self._csr_array.indptr  # Row pointers
+        num_rows = self._csr_array.num_rows
+        num_cols = self._csr_array.num_cols
+
+        # Create the components for the transposed matrix
+        transposed_data = []
+        transposed_indices = []
+        transposed_indptr = [0] * (num_cols + 1)
+
+        # Count non-zero entries for each column (which become rows in the transposed matrix)
+        for col in indices:
+            transposed_indptr[col + 1] += 1
+
+        # Cumulative sum to generate indptr
+        for i in range(1, len(transposed_indptr)):
+            transposed_indptr[i] += transposed_indptr[i - 1]
+
+        # Temporary array to store positions for each row
+        temp_position = transposed_indptr[:-1].copy()
+
+        # Fill transposed data and indices
+        transposed_data = [0] * len(data)
+        transposed_indices = [0] * len(data)
+        for row in range(num_rows):
+            for idx in range(indptr[row], indptr[row + 1]):
+                col = indices[idx]
+                pos = temp_position[col]
+                transposed_data[pos] = data[idx]
+                transposed_indices[pos] = row
+                temp_position[col] += 1
+
+        # Return the transposed SparseNDArray
+        return SparseNDArray.make(
+            shape=(num_cols, num_rows),
+            data=transposed_data,
+            indices=transposed_indices,
+            indptr=transposed_indptr,
+            device=self.device
+        )
+
 
     # TODO: What should be the type of "out" here? NDArray or SparseNDArray?
     # def ewise_or_scalar(self, other, ewise_func, scalar_func):

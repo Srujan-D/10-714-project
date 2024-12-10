@@ -108,6 +108,16 @@ class SparseBroadcastTo(SparseTensorOp):
 def broadcast_to(a, shape):
     return SparseBroadcastTo(shape)(a)
 
+class SparseTranspose(SparseTensorOp):
+    def compute(self, a: SparseNDArray):
+        return a.transpose()
+
+    def gradient(self, out_grad: Tensor, node: Tensor):
+        return transpose(out_grad)
+    
+def transpose(a):
+    return SparseTranspose()(a)
+
 
 class SparseMatMul(SparseTensorOp):
     def compute(self, a: SparseNDArray, b: Union[SparseNDArray, NDArray]):
@@ -115,7 +125,10 @@ class SparseMatMul(SparseTensorOp):
         return a @ b
 
     def gradient(self, out_grad: Tensor, node: Tensor):
-        raise NotImplementedError()
+        # breakpoint()
+        # raise NotImplementedError()
+        a, b = node.inputs
+        return (out_grad @ b.transpose(), a.transpose() @ out_grad)
 
 
 def sparse_matmul(a, b):
