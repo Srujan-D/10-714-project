@@ -86,6 +86,7 @@ class SparseTensorOp(Op):
     """Op class specialized to output sparse tensors"""
 
     def __call__(self, *args):
+        # return
         return SparseTensor.make_from_op(self, args) # Check make_from_op for sparse tensor
 
 
@@ -111,6 +112,7 @@ class Value:
 
     def realize_cached_data(self):
         """Run compute to realize the cached data"""
+        # breakpoint()
         # avoid recomputation
         if self.cached_data is not None:
             return self.cached_data
@@ -118,6 +120,7 @@ class Value:
         self.cached_data = self.op.compute(
             *[x.realize_cached_data() for x in self.inputs]
         )
+        breakpoint()
         return self.cached_data
 
     def is_leaf(self):
@@ -380,8 +383,8 @@ class SparseTensor(Value):
     def __init__(
         self,
         data,
-        indices,
-        shape,
+        indices=None,
+        shape=None,
         device=None,
         dtype=None,
         requires_grad=True,
@@ -414,7 +417,7 @@ class SparseTensor(Value):
     def _array_from_numpy(numpy_array, device, dtype):
         if array_api is numpy:
             return numpy.array(numpy_array, dtype=dtype)
-        return array_api.array(numpy_array, device=device, dtype=dtype)
+        return array_api.SparseNDArray.make_sparse_from_numpy(numpy_array, device=device) #, dtype=dtype)
 
     @staticmethod
     def make_from_op(op: Op, inputs: List["Value"]):
@@ -522,6 +525,12 @@ class SparseTensor(Value):
             return needle.ops.SparseEWiseAddTensor()(self, needle.ops.Negate()(other))
         else:
             return needle.ops.SparseAddScalar(-other)(self)
+        
+    def __matmul__(self, other):
+        return needle.ops.SparseMatMul()(self, other)
+    
+    def matmul(self, other):
+        return needle.ops.SparseMatMul()(self, other)
         
     # TODO: do we need division?
 

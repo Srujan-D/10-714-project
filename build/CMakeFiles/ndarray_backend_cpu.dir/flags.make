@@ -4,7 +4,7 @@
 # compile CXX with /usr/bin/g++
 CXX_DEFINES = -Dndarray_backend_cpu_EXPORTS
 
-CXX_INCLUDES = -isystem /home/srujan/miniconda3/envs/dls/include/python3.13 -isystem /home/srujan/miniconda3/envs/dls/include
+CXX_INCLUDES = -isystem /home/srujan/miniconda3/envs/dls/include/python3.7m -isystem /home/srujan/miniconda3/envs/dls/include
 
 CXX_FLAGS = -std=c++11 -O2 -march=native  -fPIC -fvisibility=hidden
 

@@ -1,5 +1,5 @@
 file(REMOVE_RECURSE
-  "/home/srujan/CMU/DLSys/project/python/needle/backend_ndarray/ndarray_backend_cpu.cpython-313-x86_64-linux-gnu.so"
+  "/home/srujan/CMU/DLSys/project/python/needle/backend_ndarray/ndarray_backend_cpu.cpython-37m-x86_64-linux-gnu.so"
   "/home/srujan/CMU/DLSys/project/python/needle/backend_ndarray/ndarray_backend_cpu.pdb"
   "CMakeFiles/ndarray_backend_cpu.dir/src/ndarray_backend_cpu.cc.o"
   "CMakeFiles/ndarray_backend_cpu.dir/src/ndarray_backend_cpu.cc.o.d"

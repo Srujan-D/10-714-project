@@ -92,6 +92,8 @@ class Linear(Module):
         self.weight = Parameter(init.kaiming_uniform(in_features, out_features, device=device, dtype=dtype))
         if bias:
             self.bias = Parameter(init.kaiming_uniform(out_features, 1, device=device, dtype=dtype).transpose())
+        else:
+            self.bias = None
         ### END YOUR SOLUTION
 
     def forward(self, X: Tensor) -> Tensor:
@@ -162,8 +164,15 @@ class Sequential(Module):
 class SoftmaxLoss(Module):
     def forward(self, logits: Tensor, y: Tensor):
         ### BEGIN YOUR SOLUTION
+        if len(logits.shape) == 1:
+            logits = logits.reshape((1, logits.shape[0]))
+            # y = y.reshape((1, y.shape[0]))
+        
         num_examples, output_dim = logits.shape[0], logits.shape[1]
         y_onehot = init.one_hot(output_dim, y, device=logits.device, dtype=logits.dtype)
+        if len(y_onehot.shape) == 1:
+            y_onehot = y_onehot.reshape((1, y_onehot.shape[0]))
+        # breakpoint()
         lhs = ops.logsumexp(logits, axes = 1)
         rhs = ops.summation(ops.multiply(logits, y_onehot), axes=1)
         return ops.divide_scalar(ops.summation(lhs-rhs), num_examples)

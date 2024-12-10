@@ -99,10 +99,8 @@ class LanguageModel(nn.Module):
             )
         else:
             raise ValueError("seq_model must be 'rnn' or 'lstm'")
-        
-        self.linear = nn.Linear(
-            hidden_size, output_size, device=device, dtype=dtype
-        )
+
+        self.linear = nn.Linear(hidden_size, output_size, device=device, dtype=dtype)
         ### END YOUR SOLUTION
 
     def forward(self, x, h=None):
@@ -124,21 +122,23 @@ class LanguageModel(nn.Module):
         x = self.embedding(x)
         x, h = self.model(x, h)
         out = self.linear(x.reshape((seq_len * bs, self.hidden_size)))
-        
+
         return out, h
         ### END YOUR SOLUTION
-        
+
+
 class GCN(nn.Module):
-    '''
+    """
     GCN: Graph Convolutional Network, ICLR 2017
     https://arxiv.org/pdf/1609.02907.pdf
-    '''
-    def __init__(self, nfeat, nhid, nclass, dropout=0.5):
+    """
+
+    def __init__(self, nfeat=0, nhid=0, nclass=0, dropout=0.5, device=None):
         super().__init__()
-        self.gcn1 = GraphConv(nfeat, nhid)
-        self.gcn2 = GraphConv(nhid, nclass)
-        self.acvt = nn.Sequential(nn.ReLU(), nn.Dropout(dropout))
-        
+        self.gcn1 = GraphConv(nfeat, nhid, device=device)
+        self.gcn2 = GraphConv(nhid, nclass, device=device)
+        self.acvt = nn.Sequential(nn.ReLU()) #, nn.Dropout(dropout))
+
     def forward(self, x, adj):
         x = self.gcn1(x, adj)
         x = self.acvt(x)
@@ -147,12 +147,14 @@ class GCN(nn.Module):
 
 
 class GraphConv(nn.Module):
-    def __init__(self, in_features, out_features, bias=False):
+    def __init__(self, in_features, out_features, device, bias=False):
         super().__init__()
-        self.linear = nn.Linear(in_features, out_features, bias)
+        self.linear = nn.Linear(in_features, out_features, bias, device=device)
 
     def forward(self, x, adj):
+        breakpoint()
         return adj @ self.linear(x)
+
 
 if __name__ == "__main__":
     model = ResNet9()
