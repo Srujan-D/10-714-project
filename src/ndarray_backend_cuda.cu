@@ -1110,27 +1110,33 @@ PYBIND11_MODULE(ndarray_backend_cuda, m)
 
     py::class_<CudaSparseArray>(m, "SparseArray")
         .def(py::init<size_t, size_t, size_t>(), py::return_value_policy::take_ownership)
-        .def_property_readonly("data", [](const CudaSparseArray &self)
-                               { return py::array_t<scalar_t>(
-                                     {self.nnz},         // Shape
-                                     {sizeof(scalar_t)}, // Stride
-                                     self.data,          // Pointer to data
-                                     py::cast(self)      // Ensure CudaSparseArray stays alive
-                                 ); })
-        .def_property_readonly("indices", [](const CudaSparseArray &self)
-                               { return py::array_t<int>(
-                                     {self.nnz},    // Shape
-                                     {sizeof(int)}, // Stride
-                                     self.indices,  // Pointer to indices
-                                     py::cast(self) // Ensure CudaSparseArray stays alive
-                                 ); })
-        .def_property_readonly("indptr", [](const CudaSparseArray &self)
-                               { return py::array_t<int>(
-                                     {self.num_rows + 1}, // Shape
-                                     {sizeof(int)},       // Stride
-                                     self.indptr,         // Pointer to indptr
-                                     py::cast(self)       // Ensure CudaSparseArray stays alive
-                                 ); })
+        .def_property_readonly("data", [](const CudaSparseArray &self) {
+            std::vector<scalar_t> host_data(self.nnz);
+            cudaMemcpy(host_data.data(), self.data, self.nnz * sizeof(scalar_t), cudaMemcpyDeviceToHost);
+            return py::array_t<scalar_t>(
+                {self.nnz},
+                {sizeof(scalar_t)},
+                host_data.data()
+            );
+        })
+        .def_property_readonly("indices", [](const CudaSparseArray &self) {
+            std::vector<int> host_indices(self.nnz);
+            cudaMemcpy(host_indices.data(), self.indices, self.nnz * sizeof(int), cudaMemcpyDeviceToHost);
+            return py::array_t<int>(
+                {self.nnz},
+                {sizeof(int)},
+                host_indices.data()
+            );
+        })
+        .def_property_readonly("indptr", [](const CudaSparseArray &self) {
+            std::vector<int> host_indptr(self.num_rows + 1);
+            cudaMemcpy(host_indptr.data(), self.indptr, (self.num_rows + 1) * sizeof(int), cudaMemcpyDeviceToHost);
+            return py::array_t<int>(
+                {self.num_rows + 1},
+                {sizeof(int)},
+                host_indptr.data()
+            );
+        })
         .def_readonly("nnz", &CudaSparseArray::nnz, "Number of non-zero elements")
         .def_readonly("num_rows", &CudaSparseArray::num_rows, "Number of rows in the sparse matrix")
         .def_readonly("num_cols", &CudaSparseArray::num_cols, "Number of columns in the sparse matrix");

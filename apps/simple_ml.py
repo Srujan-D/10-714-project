@@ -59,7 +59,6 @@ def accuracy(output, labels):
 def epoch_general_cora(model, data,  loss_fn=nn.SoftmaxLoss(), opt=None):
 
     adj, features, labels, idx_train, idx_val, idx_test, feat_len, num_class = data
-
     adj = ndl.SparseTensor(adj, device=device)    #TODO: change to SparseTensor
     features = ndl.Tensor(features, device=device)
     labels = ndl.Tensor(labels, device=device)
@@ -112,7 +111,7 @@ def epoch_general_cora(model, data,  loss_fn=nn.SoftmaxLoss(), opt=None):
 
 
 def train_cora(
-    n_epochs=3,
+    n_epochs=10,
     optimizer=ndl.optim.Adam,
     lr=0.001,
     weight_decay=0.001,
