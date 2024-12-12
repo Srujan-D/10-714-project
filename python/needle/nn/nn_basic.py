@@ -178,6 +178,20 @@ class SoftmaxLoss(Module):
         return ops.divide_scalar(ops.summation(lhs-rhs), num_examples)
         ### END YOUR SOLUTION
 
+class CELoss(Module):
+    def forward(self, logits: Tensor, y: Tensor):
+        ### BEGIN YOUR SOLUTION
+        if len(logits.shape) == 1:
+            logits = logits.reshape((1, logits.shape[0]))
+            # y = y.reshape((1, y.shape[0]))
+        
+        num_examples, output_dim = logits.shape[0], logits.shape[1]
+        y_onehot = init.one_hot(output_dim, y, device=logits.device, dtype=logits.dtype)
+        if len(y_onehot.shape) == 1:
+            y_onehot = y_onehot.reshape((1, y_onehot.shape[0]))
+        part = ops.summation(ops.multiply(ops.log(logits), y_onehot), axes=(1,))
+        return -ops.summation(part, axes=(0,)) / logits.shape[0]
+
 class BatchNorm1d(Module):
     def __init__(self, dim, eps=1e-5, momentum=0.1, device=None, dtype="float32"):
         super().__init__()

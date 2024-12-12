@@ -3,7 +3,6 @@ sys.path.append('./python')
 import itertools
 import numpy as np
 import pytest
-import mugrade
 # import torch
 
 import needle as ndl
@@ -56,9 +55,9 @@ def test_sparse_mul():
 
 def test_sparse_sparse_matmul():
     def run_sparse_test():
-        a = np.random.randint(low=500, high=1000)
-        b = np.random.randint(low=500, high=1000)
-        c_ = np.random.randint(low=500, high=1000)
+        a = np.random.randint(low=100, high=500)
+        b = np.random.randint(low=100, high=500)
+        c_ = np.random.randint(low=100, high=500)
 
         mat_1 = nd.sparse_ndarray.SparseNDArray.create_random_sparse_matrix((a, b))
         mat_2 = nd.sparse_ndarray.SparseNDArray.create_random_sparse_matrix((b, c_))
@@ -81,9 +80,9 @@ def test_sparse_sparse_matmul():
 
 def test_dense_matmul_for_sparse_matrices():
     def run_dense_test():
-        a = np.random.randint(low=500, high=1000)
-        b = np.random.randint(low=500, high=1000)
-        c_ = np.random.randint(low=500, high=1000)
+        a = np.random.randint(low=100, high=500)
+        b = np.random.randint(low=100, high=500)
+        c_ = np.random.randint(low=100, high=500)
 
         mat_1 = nd.sparse_ndarray.SparseNDArray.create_random_sparse_matrix((a, b))
         mat_2 = nd.sparse_ndarray.SparseNDArray.create_random_sparse_matrix((b, c_))

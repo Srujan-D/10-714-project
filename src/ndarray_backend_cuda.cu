@@ -1164,6 +1164,6 @@ PYBIND11_MODULE(ndarray_backend_cuda, m)
     m.def("sparse_ewise_add_DSD", DenseSparseAdd);
     m.def("sparse_ewise_mul_SDD", SparseDenseMul);
     m.def("sparse_ewise_mul_DSD", DenseSparseMul);
-    m.def("naive_sparse_mat_dense_mat_mul", sparseMatDenseMatMul);
-    m.def("sparse_mat_dense_mat_mul", warped_sparseMatDenseMatMul);
+    m.def("sparse_mat_dense_mat_mul", sparseMatDenseMatMul);
+    m.def("warped_sparse_mat_dense_mat_mul", warped_sparseMatDenseMatMul);
 }

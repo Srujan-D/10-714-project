@@ -19,7 +19,7 @@ from dgl import DGLGraph
 from dgl.data import citation_graph as citegrh
 from models import GCN
 
-device = ndl.cuda()
+device = ndl.cpu()
 
 def cora_data(root='~/.dgl', name='cora', device="cpu"):
     name = name.lower()
@@ -48,15 +48,15 @@ def accuracy(output, labels):
     output = output.data.numpy()
     labels = labels.data.numpy()
 
-
-    preds = output.max(1)[1].type_as(labels)
-    correct = preds.eq(labels).double()
-    correct = correct.sum()
-    return correct / len(labels)
+    output = np.expand_dims(output, axis=0)
+    
+    preds = output.argmax(1).astype(labels.dtype)
+    # correct = (preds == labels).astype(labels.dtype)
+    return (preds == labels).astype(labels.dtype)
 
 
 ### CIFAR-10 training ###
-def epoch_general_cora(model, data,  loss_fn=nn.SoftmaxLoss(), opt=None):
+def epoch_general_cora(model, data,  loss_fn=nn.CELoss(), opt=None):
 
     adj, features, labels, idx_train, idx_val, idx_test, feat_len, num_class = data
     adj = ndl.SparseTensor(adj, device=device)    #TODO: change to SparseTensor
@@ -75,7 +75,6 @@ def epoch_general_cora(model, data,  loss_fn=nn.SoftmaxLoss(), opt=None):
         return loss_test, acc_test
     else:
         model.train()
-        model.train()
         opt.reset_grad()
         
         output = model(features, adj)
@@ -83,30 +82,41 @@ def epoch_general_cora(model, data,  loss_fn=nn.SoftmaxLoss(), opt=None):
         labels_list = list(ndl.ops.split(labels, 0))
 
         losses = []
-        # accuracy_list = []
+        accuracy_list = []
         for index, i in enumerate(idx_train):
             if i == 1.:
                 # breakpoint()
                 loss = loss_fn(output_list[index], labels_list[index])
                 losses.append(loss)
 
-                # accuracy_list.append(accuracy(output_list[index], labels_list[index]))
+                accuracy_list.append(accuracy(output_list[index], labels_list[index]))
 
         # breakpoint()
         loss_train = ndl.ops.stack(losses, 0)
         loss_train = ndl.ops.summation(loss_train)
 
-        # accuracy_train = ndl.ops.stack(accuracy_list, 0)
-        # accuracy_train = ndl.ops.summation(accuracy_train)               
+        accuracy_train = np.mean(accuracy_list)             
         
-
-        # loss_train = loss_fn(output[idx_train], labels[idx_train])
-        # acc_train = accuracy(output[idx_train], labels[idx_train])
         loss_train.backward()
         opt.step()
-        # loss_val = loss_fn(output[idx_val], labels[idx_val])
-        # acc_val = accuracy(output[idx_val], labels[idx_val])
-        return 0.1, loss_train
+        
+        losses = []
+        accuracy_list = []
+        for index, i in enumerate(idx_val):
+            if i == 1.:
+                # breakpoint()
+                loss = loss_fn(output_list[index], labels_list[index])
+                losses.append(loss)
+
+                accuracy_list.append(accuracy(output_list[index], labels_list[index]))
+
+        # breakpoint()
+        loss_val = ndl.ops.stack(losses, 0)
+        loss_val = ndl.ops.summation(loss_val)
+
+        acc_val = np.mean(accuracy_list)
+
+        return accuracy_train, loss_train, acc_val, loss_val
     ### END YOUR SOLUTION
 
 
@@ -122,13 +132,18 @@ def train_cora(
     data = cora_data()
     adj, features, labels, idx_train, idx_val, idx_test, feat_len, num_class = data
 
-    model = GCN(nfeat=feat_len, nhid=16, nclass=num_class, dropout=0.5, device=device)
+    model = GCN(nfeat=feat_len, nhid=1024, nclass=num_class, dropout=0.5, device=device)
 
     opt = optimizer(model.parameters(), lr=lr, weight_decay=weight_decay)
 
+    total_start = time.time()
     for epoch in range(n_epochs):
-        avg_acc, avg_loss = epoch_general_cora(model,data, loss_fn=loss_fn, opt=opt)
-        print(f"Epoch: {epoch}, Acc: {avg_acc}, Loss: {avg_loss}")
+        epoch_start = time.time()
+        avg_acc, avg_loss, val_acc, val_loss = epoch_general_cora(model,data, loss_fn=loss_fn, opt=opt)
+        epoch_time = time.time() - epoch_start
+        print(f"Epoch: {epoch}, Acc: {avg_acc}, Loss: {avg_loss}, Val Acc: {val_acc}, Val Loss: {val_loss}, Time: {epoch_time:.2f}s")
+    total_time = time.time() - total_start
+    print(f"Total training time: {total_time:.2f}s")
 
 ### CODE BELOW IS FOR ILLUSTRATION, YOU DO NOT NEED TO EDIT
 

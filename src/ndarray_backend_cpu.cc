@@ -751,9 +751,7 @@ namespace needle
                 // Copy the data
                 for (size_t i = 0; i < data_list.size(); i++)
                 {
-                    cout << "data_list[i]: " << data_list[i] << endl;
                     this->data[i] = data_list[i];
-                    cout << "data size after copy 1: " << this->data[i] << endl;
                     this->indices[i] = indices_list[i];
                 }
 
@@ -763,7 +761,6 @@ namespace needle
                 }
 
                 this->nnz = data_list.size();
-                cout << "completed copying" << endl;
             }
         };
 
